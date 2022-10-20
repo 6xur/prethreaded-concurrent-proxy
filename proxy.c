@@ -6,8 +6,16 @@
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 
+// Listen for client requests and create a new thread for each client
 int main()
 {
     printf("%s", user_agent_hdr);
+
+
+    while(1){
+        // Wait for and eventually accept an incoming connection
+        printf("Waiting for connection...\n");
+    }
+
     return 0;
 }
