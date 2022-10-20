@@ -11,8 +11,14 @@ int main()
 {
     printf("%s", user_agent_hdr);
 
+    // Check commandline arguments
+
 
     while(1){
+        int listenfd, *connfdp;
+        struct sockaddr_storage client_addr;
+        socklen_t clientlen;
+        
         // Wait for and eventually accept an incoming connection
         printf("Waiting for connection...\n");
     }
