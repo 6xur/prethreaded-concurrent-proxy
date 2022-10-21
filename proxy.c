@@ -7,6 +7,7 @@
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 
+void my_connect(int connfd);
 void *thread(void *vargp);
 
 // Listen for client requests and create a new thread for each client
@@ -44,8 +45,21 @@ void *thread(void *vargp){
 
     printf("Thread %d created\n", connfd);
 
-    // TODO: Connect to the server
+    my_connect(connfd);
 
     Close(connfd);
     return NULL;
+}
+
+void my_connect(int connfd){
+    size_t n;
+    char buf[MAXLINE];
+    rio_t rio;
+
+    // TODO: simply echo every request at the moment
+    Rio_readinitb(&rio, connfd);
+    while((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0){
+        printf("Proxy server received %d bytes\n", (int)n);
+        Rio_writen(connfd, buf, n);
+    }
 }
