@@ -31,19 +31,21 @@ int main(int argc, char **argv)
         clientlen = sizeof(struct sockaddr_storage);
         connfdp = Malloc(sizeof(int));
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        // Create a new thread for each client
         Pthread_create(&tid, NULL, thread, connfdp);
     }
-
-    return 0;
 }
 
 // Thread connects to the client on [vargp] and forward request
 void *thread(void *vargp){
     int connfd = *((int *)vargp);
-    Pthread_detach(pthread_self());
+    Pthread_detach(pthread_self());  // allow immediate disposal of resources once the thread exits
+    Free(vargp);
 
     printf("Thread %d created\n", connfd);
 
+    // TODO: Connect to the server
 
+    Close(connfd);
     return NULL;
 }
