@@ -43,8 +43,6 @@ void *thread(void *vargp){
     Pthread_detach(pthread_self());  // allow immediate disposal of resources once the thread exits
     Free(vargp);
 
-    printf("Thread %d created\n", connfd);
-
     my_connect(connfd);
 
     Close(connfd);
@@ -52,14 +50,26 @@ void *thread(void *vargp){
 }
 
 void my_connect(int connfd){
-    size_t n;
-    char buf[MAXLINE];
+    int middleman;  // file descriptor
+    char host[MAXLINE], port[MAXLINE], path[MAXLINE];
+    // Rio to parse client request
     rio_t rio;
 
-    // TODO: simply echo every request at the moment
-    Rio_readinitb(&rio, connfd);
-    while((n = Rio_readlineb(&rio, buf, MAXLINE)) != 0){
+    parse_req(connfd, &rio, host, port, path);
+   
+}
+
+int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
+    size_t n;
+    char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+    char buf[MAXLINE];
+
+    // Initialize rio
+    Rio_readinitb(rio, connection);
+    while((n = Rio_readlineb(rio, buf, MAXLINE)) != 0){
         printf("Proxy server received %d bytes\n", (int)n);
-        Rio_writen(connfd, buf, n);
+        Rio_writen(connection, buf, n);
     }
+    
+    return -1;
 }
