@@ -18,11 +18,12 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel M
 
 /* Request handling functions */
 void *thread(void *vargp);
-void my_connect(int connfd);
+void connect_req(int connfd);
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
 
 /* sbuf functions */
 void sbuf_init(sbuf_t *sp, int n);
+void sbuf_deinit(sbuf_t *sp);
 void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
@@ -46,7 +47,7 @@ int main(int argc, char **argv){
         Pthread_create(&tid, NULL, thread, NULL);
     }
 
-    /* Wiat for and eventually accept a connection */
+    /* Wait for and eventually accept a connection */
     while(1){
         clientlen = sizeof(struct sockaddr_storage);
         connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
@@ -59,56 +60,58 @@ void *thread(void *vargp){
     while(1){
         int connfd = sbuf_remove(&sbuf);  // remove connfd from buf
         printf("connfd: %d\n", connfd);
-        my_connect(connfd);
+        connect_req(connfd);
         Close(connfd);
     }
 }
 
-void my_connect(int connfd){
+void connect_req(int connfd){
     int middleman;  // file descriptor
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
-    // Rio to parse client request
     rio_t rio;
 
+    /* Parse client request into host, port, and path */
     parse_req(connfd, &rio, host, port, path);
    
 }
 
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
-    size_t n;
+    /* Parse request into method, uri, and version */
     char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char rbuf[MAXLINE];
-    // Strings to keep track of for URI parsing
+    /* Strings to keep track of URI parsing */
     char *spec, *check;    // port specified?
     char *buf, *p, *save;  // used for explicit URI parse
 
-    // Initialize rio
+    /* Initialize rio */
     Rio_readinitb(rio, connection);
     if(!Rio_readlineb(rio, rbuf, MAXLINE)){
-        printf("bad request\n");
+        printf("ERROR: Bad request\n");
         return -1;
     }
 
-    // Splice the request
+    /* Splice the request */
     sscanf(rbuf, "%s %s %s", method, uri, version);
     /*********************/
     printf("the method is: %s\n", method);
     printf("the uri is: %s\n", uri);
     printf("the version is: %s\n", version);
-    printf("\n");
     /*********************/
 
     if(strcmp(method, "GET")){  // Error: HTTP request isn't GET
-        printf("Error: HTTP request isn't GET\n");
+        printf("ERROR: HTTP request isn't GET\n");
         return -1;
-    } else if(!strstr(uri, "http://")){  // Error: HTTP prefix not found
-        printf("Error: HTTP prefix not found\n");
+    } else if(!strstr(uri, "http://")){  // Error: 'http://' not found
+        printf("ERROR: 'http://' not found\n");
         return -1;
     } else{  // parse URI
         buf = uri + 7;  // ignore 'http://'
-        printf("the new buffer (host) is: %s\n", buf);
         spec = index(buf, ':');    // pointer to the first occurence of ':'
         check = rindex(buf, ':');  // pointer to the last occurrence of ':'
+        if(spec != check){
+            printf("ERROR: Cannot handle more than one semicolon\n");
+            return -1;
+        }
         
     }
 
@@ -116,11 +119,12 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 }
 
 
+/****************
+ * sbuf functions
+ ****************/
 
 /* Create an empty, bounded, shared FIFO buffer with n slots */
-/* $begin sbuf_init */
-void sbuf_init(sbuf_t *sp, int n)
-{
+void sbuf_init(sbuf_t *sp, int n){
     sp->buf = Calloc(n, sizeof(int)); 
     sp->n = n;                       /* Buffer holds max of n items */
     sp->front = sp->rear = 0;        /* Empty buffer iff front == rear */
@@ -128,32 +132,23 @@ void sbuf_init(sbuf_t *sp, int n)
     Sem_init(&sp->slots, 0, n);      /* Initially, buf has n empty slots */
     Sem_init(&sp->items, 0, 0);      /* Initially, buf has zero data items */
 }
-/* $end sbuf_init */
 
 /* Clean up buffer sp */
-/* $begin sbuf_deinit */
-void sbuf_deinit(sbuf_t *sp)
-{
+void sbuf_deinit(sbuf_t *sp){
     Free(sp->buf);
 }
-/* $end sbuf_deinit */
 
 /* Insert item onto the rear of shared buffer sp */
-/* $begin sbuf_insert */
-void sbuf_insert(sbuf_t *sp, int item)
-{
+void sbuf_insert(sbuf_t *sp, int item){
     P(&sp->slots);                          /* Wait for available slot */
     P(&sp->mutex);                          /* Lock the buffer */
     sp->buf[(++sp->rear)%(sp->n)] = item;   /* Insert the item */
     V(&sp->mutex);                          /* Unlock the buffer */
     V(&sp->items);                          /* Announce available item */
 }
-/* $end sbuf_insert */
 
 /* Remove and return the first item from buffer sp */
-/* $begin sbuf_remove */
-int sbuf_remove(sbuf_t *sp)
-{
+int sbuf_remove(sbuf_t *sp){
     int item;
     P(&sp->items);                          /* Wait for available item */
     P(&sp->mutex);                          /* Lock the buffer */
@@ -162,6 +157,3 @@ int sbuf_remove(sbuf_t *sp)
     V(&sp->slots);                          /* Announce available slot */
     return item;
 }
-/* $end sbuf_remove */
-/* $end sbufc */
-
