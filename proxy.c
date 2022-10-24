@@ -92,11 +92,11 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
     /* Splice the request */
     sscanf(rbuf, "%s %s %s", method, uri, version);
-    /*********************/
-    printf("the method is: %s\n", method);
-    printf("the uri is: %s\n", uri);
-    printf("the version is: %s\n", version);
-    /*********************/
+    /***************************************/
+    printf("Method: %s\n", method);
+    printf("URI: %s\n", uri);
+    printf("Version: %s\n", version);
+    /***************************************/
 
     if(strcmp(method, "GET")){  // Error: HTTP request isn't GET
         printf("ERROR: HTTP request isn't GET\n");
@@ -108,10 +108,41 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
         buf = uri + 7;  // ignore 'http://'
         spec = index(buf, ':');    // pointer to the first occurence of ':'
         check = rindex(buf, ':');  // pointer to the last occurrence of ':'
+
+        /* Cannot handle ":" after port */
         if(spec != check){
-            printf("ERROR: Cannot handle more than one semicolon\n");
+            printf("ERROR: Cannot handle ':' after port\n");
             return -1;
         }
+
+        /* Port is specified */
+        if(spec){
+
+            // Get host name
+            p = strtok_r(buf, ":", &save);
+            strcpy(host, p);
+
+            // Get port from buf
+            buf = strtok_r(NULL, ":", &save);
+            p = strtok_r(buf, "/", &save);
+            strcpy(port, p);
+
+            // Get path
+            while((p = strtok_r(NULL, "/", &save)) != NULL){
+                strcat(path, "/");
+                strcat(path, p);
+            }
+            
+            printf("Parsing URI..\n");
+            printf("Host: %s\n", host);
+            printf("Port: %s\n", port);
+            printf("Path: %s\n", path);
+        }
+        /* Port not specified */
+        else{
+            
+        }
+
         
     }
 
