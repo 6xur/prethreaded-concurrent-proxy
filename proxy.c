@@ -15,6 +15,7 @@ sbuf_t sbuf;  // shared buffer of connected descriptors
 // read through the lecture slides
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
+static const char *web_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
@@ -117,7 +118,6 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
         /* Port is specified */
         if(spec){
-
             // Get host name
             p = strtok_r(buf, ":", &save);
             strcpy(host, p);
@@ -132,18 +132,29 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
                 strcat(path, "/");
                 strcat(path, p);
             }
-            
-            printf("Parsing URI..\n");
-            printf("Host: %s\n", host);
-            printf("Port: %s\n", port);
-            printf("Path: %s\n", path);
         }
         /* Port not specified */
         else{
+            // Get host name
+            p = strtok_r(buf, "/", &save);
+            strcpy(host, p);
+
+            // Get path
+            while((p = strtok_r(NULL, "/", &save)) != NULL){
+                strcat(path, "/");
+                strcat(path, p);
+            }
+
+            // Set port as unspecified
+            strcpy(port, web_port);
             
         }
 
-        
+        printf("-----Parsing URI-----\n");
+        printf("Host: %s\n", host);
+        printf("Port: %s\n", port);
+        printf("Path: %s\n", path);
+
     }
 
     return -1;
