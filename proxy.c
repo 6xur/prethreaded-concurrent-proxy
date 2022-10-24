@@ -1,58 +1,67 @@
 #include <stdio.h>
+#include "sbuf.h"
 #include "csapp.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
-#define NTHREADS 64
-sbuf_t sbuf;  // shared buffer of 
+#define NTHREADS 4
+#define SBUFSIZE 16
+
+sbuf_t sbuf;  // shared buffer of connected descriptors
 
 // TODO: remove threads because we don't need to keep track of all thread IDs
 // read through the lecture slides
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 
+/* Request handling functions */
 void *thread(void *vargp);
 void my_connect(int connfd);
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
 
+/* sbuf functions */
+void sbuf_init(sbuf_t *sp, int n);
+void sbuf_insert(sbuf_t *sp, int item);
+int sbuf_remove(sbuf_t *sp);
+
 int main(int argc, char **argv){
-    int listenfd, *connfdp;
+    int listenfd, connfd;
     pthread_t tid;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
-    pthread_t *threads = Malloc(sizeof(pthread_t) * NTHREADS);
 
-    // Check commandline arguments
+    /* Check commandline arguments */
     if(argc != 2){
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(0);
     }
 
-    // Listen on port specified by the user
+    /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);
-
-    // Create worker threads
+    
+    sbuf_init(&sbuf, SBUFSIZE);
     for(int i = 0; i < NTHREADS; i++){
-        Pthread_create(&threads[i], NULL, thread, NULL);
+        Pthread_create(&tid, NULL, thread, NULL);
     }
 
-    // Wait for and eventually accept a connection
+    /* Wiat for and eventually accept a connection */
     while(1){
         clientlen = sizeof(struct sockaddr_storage);
-        connfdp = Malloc(sizeof(int));
-        *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        // TODO: somehow pass the connfdp to a thread
+        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        sbuf_insert(&sbuf, connfd);  // insert connfd in buffer
     }
 }
 
 void *thread(void *vargp){
-    Pthread_detach(pthread_self());  // allow immediate disposal of resources once the thread exits
+    Pthread_detach(pthread_self());
     while(1){
-        // TODO: get the connected file descriptor
+        int connfd = sbuf_remove(&sbuf);  // remove connfd from buf
+        printf("connfd: %d\n", connfd);
+        my_connect(connfd);
+        Close(connfd);
     }
-    return NULL;
 }
 
 void my_connect(int connfd){
@@ -105,3 +114,54 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
     return -1;
 }
+
+
+
+/* Create an empty, bounded, shared FIFO buffer with n slots */
+/* $begin sbuf_init */
+void sbuf_init(sbuf_t *sp, int n)
+{
+    sp->buf = Calloc(n, sizeof(int)); 
+    sp->n = n;                       /* Buffer holds max of n items */
+    sp->front = sp->rear = 0;        /* Empty buffer iff front == rear */
+    Sem_init(&sp->mutex, 0, 1);      /* Binary semaphore for locking */
+    Sem_init(&sp->slots, 0, n);      /* Initially, buf has n empty slots */
+    Sem_init(&sp->items, 0, 0);      /* Initially, buf has zero data items */
+}
+/* $end sbuf_init */
+
+/* Clean up buffer sp */
+/* $begin sbuf_deinit */
+void sbuf_deinit(sbuf_t *sp)
+{
+    Free(sp->buf);
+}
+/* $end sbuf_deinit */
+
+/* Insert item onto the rear of shared buffer sp */
+/* $begin sbuf_insert */
+void sbuf_insert(sbuf_t *sp, int item)
+{
+    P(&sp->slots);                          /* Wait for available slot */
+    P(&sp->mutex);                          /* Lock the buffer */
+    sp->buf[(++sp->rear)%(sp->n)] = item;   /* Insert the item */
+    V(&sp->mutex);                          /* Unlock the buffer */
+    V(&sp->items);                          /* Announce available item */
+}
+/* $end sbuf_insert */
+
+/* Remove and return the first item from buffer sp */
+/* $begin sbuf_remove */
+int sbuf_remove(sbuf_t *sp)
+{
+    int item;
+    P(&sp->items);                          /* Wait for available item */
+    P(&sp->mutex);                          /* Lock the buffer */
+    item = sp->buf[(++sp->front)%(sp->n)];  /* Remove the item */
+    V(&sp->mutex);                          /* Unlock the buffer */
+    V(&sp->slots);                          /* Announce available slot */
+    return item;
+}
+/* $end sbuf_remove */
+/* $end sbufc */
+
