@@ -7,8 +7,10 @@
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 
-void my_connect(int connfd);
 void *thread(void *vargp);
+void my_connect(int connfd);
+int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
+void flush_str(char *str);
 
 // Listen for client requests and create a new thread for each client
 int main(int argc, char **argv)
@@ -66,10 +68,35 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
     // Initialize rio
     Rio_readinitb(rio, connection);
-    while((n = Rio_readlineb(rio, buf, MAXLINE)) != 0){
-        printf("Proxy server received %d bytes\n", (int)n);
-        Rio_writen(connection, buf, n);
+    if(!Rio_readlineb(rio, buf, MAXLINE)){
+        printf("bad request\n");
+        return -1;
     }
-    
+
+    // Splice the request
+    sscanf(buf, "%s %s %s", method, uri, version);
+    /*********************/
+    printf("the method is: %s\n", method);
+    printf("the uri is: %s\n", uri);
+    printf("the version is: %s\n", version);
+    printf("\n");
+    /*********************/
+
+    if(strcmp(method, "GET")){  // Error: HTTP request isn't GET
+        printf("HTTP request isn't get\n");
+        return -1;
+    } else if(!strstr(uri, "http://")){  // Error: HTTP prefix not found
+        printf("HTTP prefix not found\n");
+        return -1;
+    } else{  // Parse URI
+
+    }
+
     return -1;
+}
+
+void flush_str(char *str){
+    if(str){
+        memset(str, 0, sizeof(str));
+    }
 }
