@@ -5,20 +5,24 @@
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
+#define NTHREADS 64
+sbuf_t sbuf;  // shared buffer of 
+
+// TODO: remove threads because we don't need to keep track of all thread IDs
+// read through the lecture slides
+
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 
 void *thread(void *vargp);
 void my_connect(int connfd);
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
-void flush_str(char *str);
 
-// Listen for client requests and create a new thread for each client
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv){
     int listenfd, *connfdp;
+    pthread_t tid;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
-    pthread_t tid;
+    pthread_t *threads = Malloc(sizeof(pthread_t) * NTHREADS);
 
     // Check commandline arguments
     if(argc != 2){
@@ -29,25 +33,25 @@ int main(int argc, char **argv)
     // Listen on port specified by the user
     listenfd = Open_listenfd(argv[1]);
 
+    // Create worker threads
+    for(int i = 0; i < NTHREADS; i++){
+        Pthread_create(&threads[i], NULL, thread, NULL);
+    }
+
+    // Wait for and eventually accept a connection
     while(1){
-        // Wait for and eventually accept an incoming connection
         clientlen = sizeof(struct sockaddr_storage);
         connfdp = Malloc(sizeof(int));
         *connfdp = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        // Create a new thread for each client
-        Pthread_create(&tid, NULL, thread, connfdp);
+        // TODO: somehow pass the connfdp to a thread
     }
 }
 
-// Thread connects to the client on [vargp] and forward request
 void *thread(void *vargp){
-    int connfd = *((int *)vargp);
     Pthread_detach(pthread_self());  // allow immediate disposal of resources once the thread exits
-    Free(vargp);
-
-    my_connect(connfd);
-
-    Close(connfd);
+    while(1){
+        // TODO: get the connected file descriptor
+    }
     return NULL;
 }
 
@@ -64,17 +68,20 @@ void my_connect(int connfd){
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
     size_t n;
     char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-    char buf[MAXLINE];
+    char rbuf[MAXLINE];
+    // Strings to keep track of for URI parsing
+    char *spec, *check;    // port specified?
+    char *buf, *p, *save;  // used for explicit URI parse
 
     // Initialize rio
     Rio_readinitb(rio, connection);
-    if(!Rio_readlineb(rio, buf, MAXLINE)){
+    if(!Rio_readlineb(rio, rbuf, MAXLINE)){
         printf("bad request\n");
         return -1;
     }
 
     // Splice the request
-    sscanf(buf, "%s %s %s", method, uri, version);
+    sscanf(rbuf, "%s %s %s", method, uri, version);
     /*********************/
     printf("the method is: %s\n", method);
     printf("the uri is: %s\n", uri);
@@ -83,20 +90,18 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
     /*********************/
 
     if(strcmp(method, "GET")){  // Error: HTTP request isn't GET
-        printf("HTTP request isn't get\n");
+        printf("Error: HTTP request isn't GET\n");
         return -1;
     } else if(!strstr(uri, "http://")){  // Error: HTTP prefix not found
-        printf("HTTP prefix not found\n");
+        printf("Error: HTTP prefix not found\n");
         return -1;
-    } else{  // Parse URI
-
+    } else{  // parse URI
+        buf = uri + 7;  // ignore 'http://'
+        printf("the new buffer (host) is: %s\n", buf);
+        spec = index(buf, ':');    // pointer to the first occurence of ':'
+        check = rindex(buf, ':');  // pointer to the last occurrence of ':'
+        
     }
 
     return -1;
-}
-
-void flush_str(char *str){
-    if(str){
-        memset(str, 0, sizeof(str));
-    }
 }
