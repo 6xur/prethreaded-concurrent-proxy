@@ -21,6 +21,8 @@ static const char *web_port = "80";
 void *thread(void *vargp);
 void connect_req(int connfd);
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
+void forward_req(int server, int client, rio_t *requio, char *host, char *path);
+int ignore_hdr(char *hdr);
 
 /* sbuf functions */
 void sbuf_init(sbuf_t *sp, int n);
@@ -73,19 +75,54 @@ void connect_req(int connfd){
 
     /* Parse client request into host, port, and path */
     if(parse_req(connfd, &rio, host, port, path) < 0){
-        fprintf(stderr, "ERROR: Cannot read this request path...\n");
+        fprintf(stderr, "ERROR: Parsing failed...\n");
     } 
     /* Parsing succeeded, continue */
     else{
-        if((middleman = Open_clientfd(host, port)) < 0){
+        if((middleman = Open_clientfd(host, port)) < 0){  // open connection to server
             printf("ERROR: Could not establish connection to the server\n");
         } else{
-            printf("If this prints then we are good\n");
-            // forward_req
+            printf("Successfully established connection with server\n");
+            forward_req(middleman, connfd, &rio, host, path);
             Close(middleman);
         }
     }
-   
+}
+
+void forward_req(int server, int client, rio_t *requio, char *host, char *path){
+    /* Client-side reading */
+    char buf[MAXLINE];
+    char cbuf[MAXLINE];
+    ssize_t n = 0;
+
+    /* Server-side reading */
+    char svbuf[MAXLINE];
+    rio_t respio;
+    ssize_t m = 0;
+
+    /* -- BUILD & FORWARD REQUEST TO SERVER -- */
+    sprintf(buf, "GET %s HTTP/1.0\r\n", path);
+    /* Build client headers */
+    while((n = rio_readlineb(requio, cbuf, MAXLINE)) != 0){
+        if(!strcmp(cbuf, "\r\n")){
+            break;  // empty line found => end of headers
+            // todo: continue
+        }
+    }
+}
+
+int ignore_hdr(char *hdr){
+    /* Ignore header for Proxy-Connection */
+    if(strstr(hdr, "Proxy-Connection")){
+        return 1;  // ignore
+    } else if(strstr(hdr, "Connection")){  // ignore header for connection
+        return 1;  // ignore
+    } else if(strcmp(hdr, "\r\n")){  // ignore empty line for client headers
+        return 1;  // ignore
+    } else{  // everything else ia cceptable
+        return 0;
+    }
+
 }
 
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
