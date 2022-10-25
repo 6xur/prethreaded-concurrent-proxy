@@ -72,7 +72,19 @@ void connect_req(int connfd){
     rio_t rio;
 
     /* Parse client request into host, port, and path */
-    parse_req(connfd, &rio, host, port, path);
+    if(parse_req(connfd, &rio, host, port, path) < 0){
+        fprintf(stderr, "ERROR: Cannot read this request path...\n");
+    } 
+    /* Parsing succeeded, continue */
+    else{
+        if((middleman = Open_clientfd(host, port)) < 0){
+            printf("ERROR: Could not establish connection to the server\n");
+        } else{
+            printf("If this prints then we are good\n");
+            // forward_req
+            Close(middleman);
+        }
+    }
    
 }
 
@@ -147,17 +159,16 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
             // Set port as unspecified
             strcpy(port, web_port);
-            
         }
 
         printf("-----Parsing URI-----\n");
         printf("Host: %s\n", host);
         printf("Port: %s\n", port);
         printf("Path: %s\n", path);
+        printf("\n");
 
+        return 0;
     }
-
-    return -1;
 }
 
 
