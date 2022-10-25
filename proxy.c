@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include "sbuf.h"
+#include "sbuf.c"
 #include "csapp.h"
 
 /* Recommended max cache and object sizes */
@@ -11,10 +12,14 @@
 
 sbuf_t sbuf;  // shared buffer of connected descriptors
 
-// TODO: remove threads because we don't need to keep track of all thread IDs
-// read through the lecture slides
-
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
+
+static const char *accept_hdr = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n";
+static const char *accept_encoding_hdr = "Accept-Encoding: gzip, deflate\r\n";
+static const char *conn_hdr = "Connection: close\r\n";
+static const char *pconn_hdr = "Proxy-Connection: close\r\n";
+static const char *end_hdr = "\r\n";
+
 static const char *web_port = "80";
 
 /* Request handling functions */
@@ -84,6 +89,7 @@ void connect_req(int connfd){
         } else{
             printf("Successfully established connection with server\n");
             forward_req(middleman, connfd, &rio, host, path);
+            printf("This should run\n");
             Close(middleman);
         }
     }
@@ -105,10 +111,51 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Build client headers */
     while((n = rio_readlineb(requio, cbuf, MAXLINE)) != 0){
         if(!strcmp(cbuf, "\r\n")){
+            printf("Breaking\n");
             break;  // empty line found => end of headers
-            // todo: continue
+        }
+        if(!ignore_hdr(cbuf)){
+            printf("Not ignoring\n");
+            sprintf(buf, "%s%s\r\n", buf, cbuf);
         }
     }
+    /* Build proxy headers */
+    sprintf(buf, "%sHost: %s\r\n", buf, host);
+    sprintf(buf, "%s%s", buf, user_agent_hdr);
+    sprintf(buf, "%s%s", buf, accept_hdr);
+    sprintf(buf, "%s%s", buf, accept_encoding_hdr);
+    sprintf(buf, "%s%s", buf, conn_hdr);
+    sprintf(buf, "%s%s", buf, pconn_hdr);
+    sprintf(buf, "%s%s", buf, end_hdr);
+    /* Forward request to server */
+    if(rio_writen(server, buf, strlen(buf)) < 0){
+        printf("ERROR: rio_writen failed");
+        return;
+    }
+
+    printf("%s\n", buf);
+
+    /* -- BUILD & FORWARD SERVER RESPONSE TO CLIENT -- */
+    /* Initialize rio to read server's response */
+    Rio_readinitb(&respio, server);
+    printf("Debug: before forward to client\n");
+    /* Read from fd[server] and write to fd[client] */
+    // while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
+    //     // RIO error check
+    //     if(m < 0){
+    //         printf("ERROR: RIO error");
+    //         return;
+    //     }
+
+    //     // Write to client
+    //     if(rio_writen(client, svbuf, m) < 0){
+    //         printf("ERROR: Writing to client error");
+    //         return;
+    //     }
+    // }
+    printf("Debug: after forward to client\n");
+
+
 }
 
 int ignore_hdr(char *hdr){
@@ -122,7 +169,6 @@ int ignore_hdr(char *hdr){
     } else{  // everything else ia cceptable
         return 0;
     }
-
 }
 
 int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
@@ -206,44 +252,4 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
         return 0;
     }
-}
-
-
-/****************
- * sbuf functions
- ****************/
-
-/* Create an empty, bounded, shared FIFO buffer with n slots */
-void sbuf_init(sbuf_t *sp, int n){
-    sp->buf = Calloc(n, sizeof(int)); 
-    sp->n = n;                       /* Buffer holds max of n items */
-    sp->front = sp->rear = 0;        /* Empty buffer iff front == rear */
-    Sem_init(&sp->mutex, 0, 1);      /* Binary semaphore for locking */
-    Sem_init(&sp->slots, 0, n);      /* Initially, buf has n empty slots */
-    Sem_init(&sp->items, 0, 0);      /* Initially, buf has zero data items */
-}
-
-/* Clean up buffer sp */
-void sbuf_deinit(sbuf_t *sp){
-    Free(sp->buf);
-}
-
-/* Insert item onto the rear of shared buffer sp */
-void sbuf_insert(sbuf_t *sp, int item){
-    P(&sp->slots);                          /* Wait for available slot */
-    P(&sp->mutex);                          /* Lock the buffer */
-    sp->buf[(++sp->rear)%(sp->n)] = item;   /* Insert the item */
-    V(&sp->mutex);                          /* Unlock the buffer */
-    V(&sp->items);                          /* Announce available item */
-}
-
-/* Remove and return the first item from buffer sp */
-int sbuf_remove(sbuf_t *sp){
-    int item;
-    P(&sp->items);                          /* Wait for available item */
-    P(&sp->mutex);                          /* Lock the buffer */
-    item = sp->buf[(++sp->front)%(sp->n)];  /* Remove the item */
-    V(&sp->mutex);                          /* Unlock the buffer */
-    V(&sp->slots);                          /* Announce available slot */
-    return item;
 }
