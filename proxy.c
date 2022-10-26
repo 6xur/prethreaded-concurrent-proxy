@@ -142,19 +142,19 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Read from fd[server] and write to fd[client] */
 
     // TODO: Uncomment the code block below causes 159 to not execute
-    // while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
-    //     // RIO error check
-    //     if(m < 0){
-    //         printf("ERROR: RIO error");
-    //         return;
-    //     }
+    while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
+        // RIO error check
+        if(m < 0){
+            printf("ERROR: RIO error");
+            return;
+        }
 
-    //     // Write to client
-    //     if(rio_writen(client, svbuf, m) < 0){
-    //         printf("ERROR: Writing to client error");
-    //         return;
-    //     }
-    // }
+        // Write to client
+        if(rio_writen(client, svbuf, m) < 0){
+            printf("ERROR: Writing to client error");
+            return;
+        }
+    }
 
     printf("Debug: after forward to client\n");
 
