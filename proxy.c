@@ -29,6 +29,10 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
 int ignore_hdr(char *hdr);
 
+/* Error handling functions */
+void flush_str(char *str);
+void flush_strs(char *str, char *str2, char *str3);
+
 /* sbuf functions */
 void sbuf_init(sbuf_t *sp, int n);
 void sbuf_deinit(sbuf_t *sp);
@@ -81,15 +85,18 @@ void connect_req(int connfd){
 
     /* Parse client request into host, port, and path */
     if(parse_req(connfd, &rio, host, port, path) < 0){
-        fprintf(stderr, "ERROR: Parsing failed...\n");
+        fprintf(stderr, "ERROR: Cannot read this request path...\n");
+        flush_strs(host, port, path);
     } 
     /* Parsing succeeded, continue */
     else{
         if((middleman = Open_clientfd(host, port)) < 0){  // open connection to server
             printf("ERROR: Could not establish connection to the server\n");
+            flush_strs(host, port, path);
         } else{
             printf("Debug: Successfully established connection with server\n");
             forward_req(middleman, connfd, &rio, host, path);
+            flush_strs(host, port, path);
             printf("Debug: This should run\n");
             Close(middleman);
         }
@@ -130,6 +137,7 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     sprintf(buf, "%s%s", buf, end_hdr);
     /* Forward request to server */
     if(rio_writen(server, buf, strlen(buf)) < 0){
+        flush_str(buf);
         printf("ERROR: rio_writen failed");
         return;
     }
@@ -156,6 +164,10 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
             return;
         }
     }
+
+    /* Clean up */
+    flush_strs(buf, cbuf, svbuf);
+    flush_strs(host, path, path);
 
     printf("Debug: after forward to client\n");
 
@@ -261,4 +273,19 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
 
         return 0;
     }
+}
+
+/********************
+ * CLEAN-UP FUNCTIONS
+*********************/
+void flush_str(char *str){
+    if(str){
+        memset(str, 0, sizeof(str));
+    }
+}
+
+void flush_strs(char *str1, char *str2, char *str3){
+    if(str1) memset(str1, 0, sizeof(str1));
+    if(str2) memset(str2, 0, sizeof(str2));
+    if(str3) memset(str3, 0, sizeof(str3));
 }
