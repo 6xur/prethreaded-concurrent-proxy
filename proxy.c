@@ -232,9 +232,6 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
                 strcat(path, p);
             }
 
-            if(path[0] == '\0'){
-                strcat(path, "/");
-            }
         }
         /* Port not specified */
         else{
@@ -248,13 +245,13 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
                 strcat(path, p);
             }
 
-            if(path[0] == '\0'){
-                strcat(path, "/");
-            }
-
             // Set port as unspecified
             strcpy(port, web_port);
         }
+
+        if(path[0] == '\0'){
+                strcat(path, "/");
+            }
 
         printf("-----Parsing URI-----\n");
         printf("Host: %s\n", host);
