@@ -10,10 +10,9 @@
 #define NTHREADS 4
 #define SBUFSIZE 16
 
-sbuf_t sbuf;  // shared buffer of connected descriptors
+sbuf_t sbuf;  // shared buffer of connection file descriptors
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
-
 static const char *accept_hdr = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n";
 static const char *accept_encoding_hdr = "Accept-Encoding: gzip, deflate\r\n";
 static const char *conn_hdr = "Connection: close\r\n";
@@ -78,6 +77,10 @@ void *thread(void *vargp){
     }
 }
 
+/* Check for errors in the client request,
+ * parse the request,
+ * open a connection with the server,
+ * forward the request to the server */
 void connect_req(int connfd){
     int middleman;  // connection to the server
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
@@ -130,8 +133,9 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Build proxy headers */
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
-    sprintf(buf, "%s%s", buf, accept_hdr);
-    sprintf(buf, "%s%s", buf, accept_encoding_hdr);
+    // TODO: test if these two lines can be commented out
+    //sprintf(buf, "%s%s", buf, accept_hdr);
+    //sprintf(buf, "%s%s", buf, accept_encoding_hdr);
     sprintf(buf, "%s%s", buf, conn_hdr);
     sprintf(buf, "%s%s", buf, pconn_hdr);
     sprintf(buf, "%s%s", buf, end_hdr);
@@ -150,7 +154,6 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     printf("Debug: before forward to client\n");
     /* Read from fd[server] and write to fd[client] */
 
-    // TODO: Uncomment the code block below causes 159 to not execute
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
         // RIO error check
         if(m < 0){
