@@ -50,6 +50,7 @@ int main(int argc, char **argv){
     /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);
     
+    /* Create a thread pool */
     sbuf_init(&sbuf, SBUFSIZE);
     for(int i = 0; i < NTHREADS; i++){
         Pthread_create(&tid, NULL, thread, NULL);
@@ -59,14 +60,14 @@ int main(int argc, char **argv){
     while(1){
         clientlen = sizeof(struct sockaddr_storage);
         connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        sbuf_insert(&sbuf, connfd);  // insert connfd in buffer
+        sbuf_insert(&sbuf, connfd);  // insert the connection fd in buffer
     }
 }
 
 void *thread(void *vargp){
     Pthread_detach(pthread_self());
     while(1){
-        int connfd = sbuf_remove(&sbuf);  // remove connfd from buf
+        int connfd = sbuf_remove(&sbuf);  // remove a connected fd from the shared buffer
         printf("connfd: %d\n", connfd);
         connect_req(connfd);
         Close(connfd);
@@ -74,7 +75,7 @@ void *thread(void *vargp){
 }
 
 void connect_req(int connfd){
-    int middleman;  // file descriptor
+    int middleman;  // connection to the server
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
     rio_t rio;
 
@@ -87,9 +88,9 @@ void connect_req(int connfd){
         if((middleman = Open_clientfd(host, port)) < 0){  // open connection to server
             printf("ERROR: Could not establish connection to the server\n");
         } else{
-            printf("Successfully established connection with server\n");
+            printf("Debug: Successfully established connection with server\n");
             forward_req(middleman, connfd, &rio, host, path);
-            printf("This should run\n");
+            printf("Debug: This should run\n");
             Close(middleman);
         }
     }
@@ -169,7 +170,7 @@ int ignore_hdr(char *hdr){
         return 1;  // ignore
     } else if(strcmp(hdr, "\r\n")){  // ignore empty line for client headers
         return 1;  // ignore
-    } else{  // everything else ia cceptable
+    } else{  // everything else ia acceptable
         return 0;
     }
 }
@@ -230,6 +231,10 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
                 strcat(path, "/");
                 strcat(path, p);
             }
+
+            if(path[0] == '\0'){
+                strcat(path, "/");
+            }
         }
         /* Port not specified */
         else{
@@ -241,6 +246,10 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
             while((p = strtok_r(NULL, "/", &save)) != NULL){
                 strcat(path, "/");
                 strcat(path, p);
+            }
+
+            if(path[0] == '\0'){
+                strcat(path, "/");
             }
 
             // Set port as unspecified
