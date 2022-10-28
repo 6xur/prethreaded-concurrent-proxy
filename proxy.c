@@ -18,7 +18,7 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel M
 static const char *conn_hdr = "Connection: close\r\n";
 static const char *pconn_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
-static const char *web_port = "80";
+static const char *default_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
@@ -211,6 +211,7 @@ int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
     /* Splice the request */
     sscanf(rbuf, "%s %s %s", method, uri, version);
     /***************************************/
+    printf("---------Parsing request-----------\n");
     printf("Method: %s\n", method);
     printf("URI: %s\n", uri);
     printf("Version: %s\n", version);
@@ -223,49 +224,7 @@ int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
         printf("ERROR: 'http://' not found\n");
         return -1;
     } else{  // parse URI
-        buf = uri + 7;  // ignore 'http://'
-        spec = index(buf, ':');    // pointer to the first occurence of ':'
-        check = rindex(buf, ':');  // pointer to the last occurrence of ':'
-
-        /* Cannot handle ":" after port */
-        if(spec != check){
-            printf("ERROR: Cannot handle ':' after port\n");
-            return -1;
-        }
-
-        /* Port is specified */
-        if(spec){
-            // Get host name
-            p = strtok_r(buf, ":", &save);
-            strcpy(host, p);
-
-            // Get port from buf
-            buf = strtok_r(NULL, ":", &save);
-            p = strtok_r(buf, "/", &save);
-            strcpy(port, p);
-
-            // Get path
-            while((p = strtok_r(NULL, "/", &save)) != NULL){
-                strcat(path, "/");
-                strcat(path, p);
-            }
-
-        }
-        /* Port not specified */
-        else{
-            // Get host name
-            p = strtok_r(buf, "/", &save);
-            strcpy(host, p);
-
-            // Get path
-            while((p = strtok_r(NULL, "/", &save)) != NULL){
-                strcat(path, "/");
-                strcat(path, p);
-            }
-
-            // Set port as unspecified
-            strcpy(port, web_port);
-        }
+        parse_uri(uri, host, port, path);
 
         if(path[0] == '\0'){
                 strcat(path, "/");
@@ -278,6 +237,56 @@ int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
         printf("\n");
 
         return 0;
+    }
+}
+
+void parse_uri(char *uri, char *host, char *port, char *path){
+    /* Strings to keep track of URI parsing */
+    char *spec, *check;    // port specified?
+    char *buf, *p, *save;  // used for explicit URI parse
+
+    buf = uri + 7;             // ignore 'http://'
+    spec = index(buf, ':');    // pointer to the first occurence of ':'
+    check = rindex(buf, ':');  // pointer to the last occurrence of ':'
+
+    /* Cannot handle ":" after port */
+    if(spec != check){
+        printf("ERROR: Cannot handle ':' after port\n");
+        return -1;
+    }
+
+    /* Port is specified */
+    if(spec){
+        // Get host name
+        p = strtok_r(buf, ":", &save);
+        strcpy(host, p);
+
+        // Get port from buf
+        buf = strtok_r(NULL, ":", &save);
+        p = strtok_r(buf, "/", &save);
+        strcpy(port, p);
+
+        // Get path
+        while((p = strtok_r(NULL, "/", &save)) != NULL){
+            strcat(path, "/");
+            strcat(path, p);
+        }
+
+    }
+    /* Port not specified */
+    else{
+        // Get host name
+        p = strtok_r(buf, "/", &save);
+        strcpy(host, p);
+
+        // Get path
+        while((p = strtok_r(NULL, "/", &save)) != NULL){
+            strcat(path, "/");
+            strcat(path, p);
+        }
+
+        // Set port as unspecified
+        strcpy(port, default_port);
     }
 }
 
