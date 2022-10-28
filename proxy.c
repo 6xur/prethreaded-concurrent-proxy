@@ -24,7 +24,6 @@ void connect_req(int client);
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
 void parse_uri(char *uri, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
-int ignore_hdr(char *hdr);
 
 /* Error handling functions */
 void flush_str(char *str);
@@ -37,9 +36,9 @@ void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
 /* 
- * main proxy routine: accept connections and place them 
+ * main routine: accept connections and place them 
  * in the shared buffer for a worker thread to process
-*/
+ */
 int main(int argc, char **argv){
     int listenfd, client;
     pthread_t tid;
@@ -65,24 +64,23 @@ int main(int argc, char **argv){
     while(1){
         clientlen = sizeof(struct sockaddr_storage);
         client = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        sbuf_insert(&sbuf, client);  // insert the connection fd in buffer
+        sbuf_insert(&sbuf, client);
     }
 }
 
 void *thread(void *vargp){
     Pthread_detach(pthread_self());
     while(1){
-        int client = sbuf_remove(&sbuf);  // remove a connected fd from the shared buffer
+        int client = sbuf_remove(&sbuf);  // remove a client fd from the shared buffer
         printf("connfd: %d\n", client);
         connect_req(client);
         Close(client);
     }
 }
 
-/* Check for errors in the client request,
- * parse the request,
- * open a connection with the server,
- * forward the request to the server */
+/* Check for errors in the client request, parse the request,
+ * forward the request to server, and finally forward server
+ * response to client */
 void connect_req(int client){
     int server;  // connection to the server
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
@@ -96,13 +94,11 @@ void connect_req(int client){
     /* Parsing succeeded, continue */
     else{
         if((server = Open_clientfd(host, port)) < 0){  // open connection to server
-            printf("ERROR: Could not establish connection to the server\n");
+            fprintf(stderr, "ERROR: Could not establish connection to the server\n");
             flush_strs(host, port, path);
         } else{
-            printf("Debug: Successfully established connection with server\n");
             forward_req(server, client, &rio, host, path);
             flush_strs(host, port, path);
-            printf("Debug: This should run\n");
             Close(server);
         }
     }
@@ -121,48 +117,30 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
 
     /* -- BUILD & FORWARD REQUEST TO SERVER -- */
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
-    /* Build client headers */
-    // while((n = rio_readlineb(requio, cbuf, MAXLINE)) != 0){
-    //     if(!strcmp(cbuf, "\r\n")){
-    //         printf("Breaking\n");
-    //         break;  // empty line found => end of headers
-    //     }
-    //     if(!ignore_hdr(cbuf)){
-    //         printf("Not ignoring\n");
-    //         sprintf(buf, "%s%s\r\n", buf, cbuf);
-    //     }
-    // }
+
     /* Build proxy headers */
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
     sprintf(buf, "%s%s", buf, conn_hdr);
     sprintf(buf, "%s%s", buf, pconn_hdr);
     sprintf(buf, "%s%s", buf, end_hdr);
+
     /* Forward request to server */
     if(rio_writen(server, buf, strlen(buf)) < 0){
         flush_str(buf);
-        printf("ERROR: rio_writen failed");
+        fprintf(stderr, "ERROR: writing to server failed");
         return;
     }
 
+    printf("-------- Request forwarded to the server --------\n");
     printf("%s\n", buf);
 
-    /* -- BUILD & FORWARD SERVER RESPONSE TO CLIENT -- */
-    /* Initialize rio to read server's response */
+    /* -- FORWARD SERVER RESPONSE TO CLIENT -- */
     Rio_readinitb(&respio, server);
-    printf("Debug: before forward to client\n");
-    /* Read from fd[server] and write to fd[client] */
 
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
-        // RIO error check
-        if(m < 0){
-            printf("ERROR: RIO error");
-            return;
-        }
-
-        // Write to client
         if(rio_writen(client, svbuf, m) < 0){
-            printf("ERROR: Writing to client error");
+            fprintf(stderr, "ERROR: Writing to client failed");
             return;
         }
     }
@@ -170,23 +148,6 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Clean up */
     flush_strs(buf, cbuf, svbuf);
     flush_strs(host, path, path);
-
-    printf("Debug: after forward to client\n");
-
-
-}
-
-int ignore_hdr(char *hdr){
-    /* Ignore header for Proxy-Connection */
-    if(strstr(hdr, "Proxy-Connection")){
-        return 1;  // ignore
-    } else if(strstr(hdr, "Connection")){  // ignore header for connection
-        return 1;  // ignore
-    } else if(strcmp(hdr, "\r\n")){  // ignore empty line for client headers
-        return 1;  // ignore
-    } else{  // everything else ia acceptable
-        return 0;
-    }
 }
 
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
