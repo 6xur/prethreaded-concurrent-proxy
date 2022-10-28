@@ -13,8 +13,6 @@
 sbuf_t sbuf;  // shared buffer of connection file descriptors
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
-//static const char *accept_hdr = "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8\r\n";
-//static const char *accept_encoding_hdr = "Accept-Encoding: gzip, deflate\r\n";
 static const char *conn_hdr = "Connection: close\r\n";
 static const char *pconn_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
@@ -22,8 +20,8 @@ static const char *default_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
-void connect_req(int connfd);
-int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path);
+void connect_req(int client);
+int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
 int ignore_hdr(char *hdr);
 
@@ -42,7 +40,7 @@ int sbuf_remove(sbuf_t *sp);
  * in the shared buffer for a worker thread to process
 */
 int main(int argc, char **argv){
-    int listenfd, connfd;
+    int listenfd, client;
     pthread_t tid;
     socklen_t clientlen;
     struct sockaddr_storage clientaddr;
@@ -65,18 +63,18 @@ int main(int argc, char **argv){
     /* Wait for and eventually accept a connection */
     while(1){
         clientlen = sizeof(struct sockaddr_storage);
-        connfd = Accept(listenfd, (SA *) &clientaddr, &clientlen);
-        sbuf_insert(&sbuf, connfd);  // insert the connection fd in buffer
+        client = Accept(listenfd, (SA *) &clientaddr, &clientlen);
+        sbuf_insert(&sbuf, client);  // insert the connection fd in buffer
     }
 }
 
 void *thread(void *vargp){
     Pthread_detach(pthread_self());
     while(1){
-        int connfd = sbuf_remove(&sbuf);  // remove a connected fd from the shared buffer
-        printf("connfd: %d\n", connfd);
-        connect_req(connfd);
-        Close(connfd);
+        int client = sbuf_remove(&sbuf);  // remove a connected fd from the shared buffer
+        printf("connfd: %d\n", client);
+        connect_req(client);
+        Close(client);
     }
 }
 
@@ -84,27 +82,27 @@ void *thread(void *vargp){
  * parse the request,
  * open a connection with the server,
  * forward the request to the server */
-void connect_req(int connfd){
-    int middleman;  // connection to the server
+void connect_req(int client){
+    int server;  // connection to the server
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
     rio_t rio;
 
     /* Parse client request into host, port, and path */
-    if(parse_req(connfd, &rio, host, port, path) < 0){
+    if(parse_req(client, &rio, host, port, path) < 0){
         fprintf(stderr, "ERROR: Cannot read this request path...\n");
         flush_strs(host, port, path);
     } 
     /* Parsing succeeded, continue */
     else{
-        if((middleman = Open_clientfd(host, port)) < 0){  // open connection to server
+        if((server = Open_clientfd(host, port)) < 0){  // open connection to server
             printf("ERROR: Could not establish connection to the server\n");
             flush_strs(host, port, path);
         } else{
             printf("Debug: Successfully established connection with server\n");
-            forward_req(middleman, connfd, &rio, host, path);
+            forward_req(server, client, &rio, host, path);
             flush_strs(host, port, path);
             printf("Debug: This should run\n");
-            Close(middleman);
+            Close(server);
         }
     }
 }
@@ -136,9 +134,6 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Build proxy headers */
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
-    // TODO: test if these two lines can be commented out
-    //sprintf(buf, "%s%s", buf, accept_hdr);
-    //sprintf(buf, "%s%s", buf, accept_encoding_hdr);
     sprintf(buf, "%s%s", buf, conn_hdr);
     sprintf(buf, "%s%s", buf, pconn_hdr);
     sprintf(buf, "%s%s", buf, end_hdr);
@@ -193,16 +188,13 @@ int ignore_hdr(char *hdr){
     }
 }
 
-int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
+int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     /* Parse request into method, uri, and version */
     char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char rbuf[MAXLINE];
-    /* Strings to keep track of URI parsing */
-    char *spec, *check;    // port specified?
-    char *buf, *p, *save;  // used for explicit URI parse
 
     /* Initialize rio */
-    Rio_readinitb(rio, connfd);
+    Rio_readinitb(rio, client);
     if(!Rio_readlineb(rio, rbuf, MAXLINE)){
         printf("ERROR: Bad request\n");
         return -1;
