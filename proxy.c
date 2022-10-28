@@ -37,6 +37,10 @@ void sbuf_deinit(sbuf_t *sp);
 void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
+/* 
+ * main proxy routine: accept connections and place them 
+ * in the shared buffer for a worker thread to process
+*/
 int main(int argc, char **argv){
     int listenfd, connfd;
     pthread_t tid;
@@ -212,7 +216,7 @@ int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
     printf("Version: %s\n", version);
     /***************************************/
 
-    if(strcmp(method, "GET")){  // Error: HTTP request isn't GET
+    if(strcasecmp(method, "GET")){  // Error: HTTP request isn't GET
         printf("ERROR: HTTP request isn't GET\n");
         return -1;
     } else if(!strstr(uri, "http://")){  // Error: 'http://' not found
@@ -265,7 +269,7 @@ int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
 
         if(path[0] == '\0'){
                 strcat(path, "/");
-            }
+        }
 
         printf("-----Parsing URI-----\n");
         printf("Host: %s\n", host);
