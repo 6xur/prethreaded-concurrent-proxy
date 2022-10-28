@@ -22,6 +22,7 @@ static const char *default_port = "80";
 void *thread(void *vargp);
 void connect_req(int client);
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
+void parse_uri(char *uri, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
 int ignore_hdr(char *hdr);
 
@@ -121,16 +122,16 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* -- BUILD & FORWARD REQUEST TO SERVER -- */
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
     /* Build client headers */
-    while((n = rio_readlineb(requio, cbuf, MAXLINE)) != 0){
-        if(!strcmp(cbuf, "\r\n")){
-            printf("Breaking\n");
-            break;  // empty line found => end of headers
-        }
-        if(!ignore_hdr(cbuf)){
-            printf("Not ignoring\n");
-            sprintf(buf, "%s%s\r\n", buf, cbuf);
-        }
-    }
+    // while((n = rio_readlineb(requio, cbuf, MAXLINE)) != 0){
+    //     if(!strcmp(cbuf, "\r\n")){
+    //         printf("Breaking\n");
+    //         break;  // empty line found => end of headers
+    //     }
+    //     if(!ignore_hdr(cbuf)){
+    //         printf("Not ignoring\n");
+    //         sprintf(buf, "%s%s\r\n", buf, cbuf);
+    //     }
+    // }
     /* Build proxy headers */
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
@@ -244,7 +245,7 @@ void parse_uri(char *uri, char *host, char *port, char *path){
     /* Cannot handle ":" after port */
     if(spec != check){
         printf("ERROR: Cannot handle ':' after port\n");
-        return -1;
+        return;
     }
 
     /* Port is specified */
