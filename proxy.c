@@ -7,8 +7,8 @@
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
 
-#define NTHREADS 4
-#define SBUFSIZE 16
+#define NTHREADS 32
+#define SBUFSIZE 32
 
 sbuf_t sbuf;  // shared buffer of connection file descriptors
 
@@ -18,13 +18,12 @@ static const char *accept_encoding_hdr = "Accept-Encoding: gzip, deflate\r\n";
 static const char *conn_hdr = "Connection: close\r\n";
 static const char *pconn_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
-
 static const char *web_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
 void connect_req(int connfd);
-int parse_req(int connection, rio_t *rio, char *host, char *port, char *path);
+int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
 int ignore_hdr(char *hdr);
 
@@ -190,7 +189,7 @@ int ignore_hdr(char *hdr){
     }
 }
 
-int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
+int parse_req(int connfd, rio_t *rio, char *host, char *port, char *path){
     /* Parse request into method, uri, and version */
     char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
     char rbuf[MAXLINE];
@@ -199,7 +198,7 @@ int parse_req(int connection, rio_t *rio, char *host, char *port, char *path){
     char *buf, *p, *save;  // used for explicit URI parse
 
     /* Initialize rio */
-    Rio_readinitb(rio, connection);
+    Rio_readinitb(rio, connfd);
     if(!Rio_readlineb(rio, rbuf, MAXLINE)){
         printf("ERROR: Bad request\n");
         return -1;
