@@ -23,6 +23,7 @@ typedef struct cache_line line;
 /* Structure of a web cache consists of a pointer to the first
  * line of the cache, the last line of the cache, and the total
  * size of the cache.
+ *
  */
  struct web_cache {
     unsigned int size;

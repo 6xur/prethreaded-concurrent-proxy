@@ -16,7 +16,7 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel M
 static const char *conn_hdr = "Connection: close\r\n";
 static const char *pconn_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
-static const char *default_port = "80";
+static const char *default_port = "80";>
 
 /* Request handling functions */
 void *thread(void *vargp);
@@ -36,7 +36,7 @@ void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
 /* 
- * main routine: accept connections and place them 
+ * main: accept connections and place them 
  * in the shared buffer for a worker thread to process
  */
 int main(int argc, char **argv){
@@ -88,9 +88,9 @@ void connect_req(int client){
 
     /* Parse client request into host, port, and path */
     if(parse_req(client, &rio, host, port, path) < 0){
-        fprintf(stderr, "ERROR: Cannot read this request path...\n");
+        fprintf(stderr, "ERROR: Cannot read this request path\n");
         flush_strs(host, port, path);
-    } 
+    }
     /* Parsing succeeded, continue */
     else{
         if((server = Open_clientfd(host, port)) < 0){  // open connection to server
@@ -117,8 +117,6 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
 
     /* -- BUILD & FORWARD REQUEST TO SERVER -- */
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
-
-    /* Build proxy headers */
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
     sprintf(buf, "%s%s", buf, conn_hdr);
@@ -171,7 +169,7 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     printf("Version: %s\n", version);
     /***************************************/
 
-    if(strcasecmp(method, "GET")){  // Error: HTTP request isn't GET
+    if(strcasecmp(method, "GET")){       // Error: HTTP request isn't GET
         printf("ERROR: HTTP request isn't GET\n");
         return -1;
     } else if(!strstr(uri, "http://")){  // Error: 'http://' not found
