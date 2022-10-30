@@ -2,6 +2,7 @@
 #include "sbuf.h"
 #include "sbuf.c"
 #include "csapp.h"
+#include "cache.h"
 
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
@@ -35,6 +36,10 @@ void sbuf_deinit(sbuf_t *sp);
 void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
+/* GLobal web cache */
+cache *C;
+pthread_rwlock_t lock;
+
 /* 
  * main routine: accept connections and place them 
  * in the shared buffer for a worker thread to process
@@ -50,6 +55,10 @@ int main(int argc, char **argv){
         fprintf(stderr, "usage: %s <port>\n", argv[0]);
         exit(0);
     }
+
+    /* SOme setup */
+    C = Malloc(sizeof(struct web_cache));
+    cache_init(C, &lock);
 
     /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);
@@ -93,13 +102,32 @@ void connect_req(int client){
     }
     /* Parsing succeeded, continue */
     else{
-        if((server = Open_clientfd(host, port)) < 0){  // open connection to server
-            fprintf(stderr, "ERROR: Could not establish connection to the server\n");
+        /* READING */
+        pthread_rwlock_rdlock(&lock);
+        line *lion = in_cache(C, host, path);
+        pthread_rwlock_unlock(&lock);
+
+        /* If in cache, don't connect to server */
+        if(lion != NULL){
+            if(rio_writen(client, lion->obj, lion->size) < 0){
+                printf("ERROR: rio_writen error: bad connection\n");
+            } else{
+                printf("Using cache !!!!!!!!!!!!!!!!!!!!!!!!!!!!");
+            }
             flush_strs(host, port, path);
-        } else{
-            forward_req(server, client, &rio, host, path);
-            flush_strs(host, port, path);
-            Close(server);
+        }
+        /* Otherwise, connect to server & forward request */
+        else{
+            printf("NOt using cache???????????\n");
+            if((server = Open_clientfd(host, port)) < 0){  // open connection to server
+                fprintf(stderr, "ERROR: Could not establish connection to the server\n");
+                flush_strs(host, port, path);
+            } else{
+                forward_req(server, client, &rio, host, path);
+                /* Clean up & close connection to server */
+                flush_strs(host, port, path);
+                Close(server);
+            }
         }
     }
 }
@@ -114,6 +142,10 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     char svbuf[MAXLINE];
     rio_t respio;
     ssize_t m = 0;
+    
+    /* Web object cache */
+    char object[MAX_OBJECT_SIZE];
+    size_t obj_size = 0;
 
     /* -- BUILD & FORWARD REQUEST TO SERVER -- */
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
@@ -137,11 +169,23 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     Rio_readinitb(&respio, server);
 
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
+        // For cache
+        obj_size += m;
+        // Write to client
         if(rio_writen(client, svbuf, m) < 0){
             fprintf(stderr, "ERROR: Writing to client failed");
             return;
         }
+        flush_str(svbuf);
     }
+
+    /* Object is not cached.
+     * If it's small enough and not a error, cache it */
+     if(obj_size <= MAX_OBJECT_SIZE){
+        pthread_rwlock_wrlock(&lock);
+        add_line(C, make_line(host, path, object, obj_size));
+        pthread_rwlock_unlock(&lock);
+     }
 
     /* Clean up */
     flush_strs(buf, cbuf, svbuf);
