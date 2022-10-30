@@ -35,11 +35,13 @@ typedef struct web_cache cache;
 void cache_init(cache *cash, pthread_rwlock_t *lock);
 int cache_full(cache *cash);
 void cache_free(cache *cash);
-/* Function prototypes for cache line operations */
+/* Function prototypes for cache_line operations */
 line *in_cache(cache *cash, char *host, char *path);
 line *make_line(char *host, char *path, char *object, size_t obj_size);
 void add_line(cache *cash, line *lion);
-void free_line(cache *cash, line *lion);
+void remove_line(cache *cash, line *lion);
+line *choose_evict(cache *cash);
+void free_line(cache *cash, line *lion);;
 void age_lines(cache *cash);
 
 
@@ -82,16 +84,6 @@ void cache_free(cache *cash){
     }
     /* Free start of cache */
     Free(cash->start);
-}
-
-
-/* Free a specified line from cache */
-void free_line(cache *cash, line *lion){
-  /* Before freeing, update cache size */
-  cash->size -= lion->size;
-  /* Free elements of line (except next--needed for freeing cache) */
-  Free(lion->loc);
-  Free(lion->obj);
 }
 
 
@@ -177,21 +169,20 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
 /* Add a line to the cache and evict if necessary
  * Must call make_line before adding a line
 */
-void add_line(cache *cash, line *lion){
-    /* CRITICAL SECTION: WRITE */
-    /* If the cache is full, choose a line to evict & remove it */
-    if(cache_full(cash)){
-        //remove_line(cash, choose_evict(cash)); TODO
-    /* Insert the line at the beginning of the list */
-    lion->next = cash->start;
-    cash->start = lion;
-    /* Update the cache size accordingly */
-    cash->size += lion->size;
-    /* END CRITICAL SECTION*/
-    }
-
+void add_line(cache *cash, line *lion) {
+  /* CRITICAL SECTION: WRITE */
+  /* If the cache is full, choose a line to evict & remove it */
+  if (cache_full(cash))
+    remove_line(cash, choose_evict(cash));
+  /* Insert the line at the beginning of the list */
+  lion->next = cash->start;
+  cash->start = lion;
+  /* Update the cache size accordingly */
+  cash->size += lion->size;
+  /* END CRITICAL SECTION */
 }
 
+/* Age the cache (for LRU policy) */
 void age_lines(cache *cash){
     line *lion = cash->start;
     /* Increment age of all lines */
@@ -199,4 +190,62 @@ void age_lines(cache *cash){
         (lion->age)++;
         lion = lion->next;
     }
+}
+
+/* Remove a line from the cache */
+void remove_line(cache *cash, line *lion){
+    line *tmp = cash->start;
+    /* Case: first line of cache */
+    if(tmp == lion){
+        // Adjust start of cache
+        cash->start = lion->next;
+        // Fully free line
+        free_line(cash, lion);
+        free(lion);
+        return;
+    }
+    while(tmp != NULL){
+        /* Case: middle line of cache */
+        if(tmp->next == lion){
+            // Adjust previous line's next ptr
+            tmp->next = lion->next;
+            // Fully free line
+            free_line(cash, lion);
+            free(lion);
+            return;
+        }
+        /* Continue */
+        else tmp = tmp->next;
+    }
+    /* Case: line not found.. can't remove */
+    printf("remove_line error: line not found");
+}
+
+/* Choose a line to evict using an LRU policy
+ * Return a pointer to the chosen line
+ */
+line *choose_evict(cache *cash){
+  line *evict, *lion;
+  int eldest = -1;
+
+  lion = cash->start;
+  evict = lion;
+  /* Search the cache for the oldest line */
+  while (lion != NULL) {
+    if (lion->age > eldest) {
+      eldest = lion->age;
+      evict = lion;
+    }
+    lion = lion->next;
+  }
+  return evict;
+}
+
+ /* Free a specified line from cache */
+void free_line(cache *cash, line *lion){
+  /* Before freeing, update cache size */
+  cash->size -= lion->size;
+  /* Free elements of line (except next--needed for freeing cache) */
+  Free(lion->loc);
+  Free(lion->obj);
 }
