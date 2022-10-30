@@ -32,11 +32,14 @@ typedef struct cache_line line;
 typedef struct web_cache cache;
 
 /* FUnction prototypes for cache operations */
-void cache_init(cache *cache, pthread_rwlock_t *lock);
-int cache_full(cache *cache);
-void cache_free(cache *cache);
+void cache_init(cache *cash, pthread_rwlock_t *lock);
+int cache_full(cache *cash);
+void cache_free(cache *cash);
 /* Function prototypes for cache line operations */
-void free_line(cache *cache, line *line);
+line *in_cache(cache *cash, char *host, char *path);
+line *make_line(char *host, char *path, char *object, size_t obj_size);
+void free_line(cache *cash, line *lion);
+void age_lines(cache *cash);
 
 
 /*****************
@@ -88,4 +91,93 @@ void free_line(cache *cash, line *lion){
   /* Free elements of line (except next--needed for freeing cache) */
   Free(lion->loc);
   Free(lion->obj);
+}
+
+
+/**********************
+ * CACHE LINE FUNCTIONS
+ **********************/
+
+ /* In cache - Determines if a web object is already in the cache
+  * Returns pointer to line if it is, NULL if it isn't 
+  */
+line *in_cache(cache* cash, char *host, char *path){
+    size_t hp = strlen(host) + strlen(path) + 2;
+    char loc[hp];
+
+    memset(loc, 0, sizeof(loc));
+
+    /* CRITICAL SECTION: READING */
+    /* Nothing is in the cache if it's empty */
+    if(cash->size == 0) return NULL;
+    /* Incr age of lines */
+    age_lines(cash);
+    /* Create the location given host and path */
+    strcat(loc, host);
+    strcat(loc, path);
+
+    /* Determine if this object is cached */
+    line *object = NULL;
+    line *lion = cash->start;
+    while(lion != NULL){
+        if(!strcmp(loc, lion->loc)){
+            object = lion;
+            break;  // object found!
+        }
+        lion = lion->next;
+    }
+    /* END CRITICAL SECTION*/
+
+    return object;
+}
+
+/* Create a line that can be inserted into the cache using a given hostname,
+ * path to an object, size of the object, and the object as it would be returned
+ * to the client.
+ * Returns a pointer to this line
+ */
+line *make_line(char *host, char *path, char *object, size_t obj_size){
+    /* Variables to build the elements of the line */
+    line *lion;
+
+    size_t loc_size = strlen(host) + strlen(path) + 2;
+    char location[loc_size];
+
+    memset(location, 0, sizeof(location));
+
+    /* Allocate space for this line */
+    lion = Malloc(sizeof(struct cache_line));
+
+    /* Set size and age of line */
+    lion->size = (unsigned int)obj_size;
+    lion->age = 0;
+
+    /* Set the location of the line (identifier) */
+    /* Combine host & path */
+    strcat(location, host);
+    strcat(location, path);
+
+    /* Allocate space for loc*/
+    loc_size = strlen(location) + 1;
+    lion->loc = Malloc(loc_size);
+    /* Finish */
+    memcpy(lion->loc, location, loc_size);
+
+    /* Set the object of the line (core purpose of line) */
+    lion->obj = Malloc(obj_size + 1);     // allocate space for obj
+    memcpy(lion->obj, object, obj_size);  // finish
+
+    /* A brand new line is alone in the world until added to the cache */
+    lion->next = NULL;
+
+    return lion;
+}
+
+void age_lines(cache *cash){
+    line *lion = cash->start;
+    /* Increment age of all lines */
+    while(lion != NULL){
+        (lion->age)++;
+        lion = lion->next;
+    }
 }
