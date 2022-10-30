@@ -16,7 +16,7 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel M
 static const char *conn_hdr = "Connection: close\r\n";
 static const char *pconn_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
-static const char *default_port = "80";>
+static const char *default_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
