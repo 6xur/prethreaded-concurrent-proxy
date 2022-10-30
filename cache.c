@@ -38,6 +38,7 @@ void cache_free(cache *cash);
 /* Function prototypes for cache line operations */
 line *in_cache(cache *cash, char *host, char *path);
 line *make_line(char *host, char *path, char *object, size_t obj_size);
+void add_line(cache *cash, line *lion);
 void free_line(cache *cash, line *lion);
 void age_lines(cache *cash);
 
@@ -171,6 +172,24 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
     lion->next = NULL;
 
     return lion;
+}
+
+/* Add a line to the cache and evict if necessary
+ * Must call make_line before adding a line
+*/
+void add_line(cache *cash, line *lion){
+    /* CRITICAL SECTION: WRITE */
+    /* If the cache is full, choose a line to evict & remove it */
+    if(cache_full(cash)){
+        //remove_line(cash, choose_evict(cash)); TODO
+    /* Insert the line at the beginning of the list */
+    lion->next = cash->start;
+    cash->start = lion;
+    /* Update the cache size accordingly */
+    cash->size += lion->size;
+    /* END CRITICAL SECTION*/
+    }
+
 }
 
 void age_lines(cache *cash){
