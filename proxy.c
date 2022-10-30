@@ -36,7 +36,7 @@ void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
 /* 
- * main: accept connections and place them 
+ * main routine: accept connections and place them 
  * in the shared buffer for a worker thread to process
  */
 int main(int argc, char **argv){
