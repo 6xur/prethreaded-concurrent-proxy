@@ -251,53 +251,19 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
 }
 
 void parse_uri(char *uri, char *host, char *port, char *path){
-    /* Strings to keep track of URI parsing */
-    char *spec, *check;    // port specified?
-    char *buf, *p, *save;  // used for explicit URI parse
-
-    buf = uri + 7;             // ignore 'http://'
-    spec = index(buf, ':');    // pointer to the first occurence of ':'
-    check = rindex(buf, ':');  // pointer to the last occurrence of ':'
-
-    /* Cannot handle ":" after port */
-    if(spec != check){
-        printf("ERROR: Cannot handle ':' after port\n");
-        return;
-    }
-
-    /* Port is specified */
-    if(spec){
-        // Get host name
-        p = strtok_r(buf, ":", &save);
-        strcpy(host, p);
-
-        // Get port from buf
-        buf = strtok_r(NULL, ":", &save);
-        p = strtok_r(buf, "/", &save);
-        strcpy(port, p);
-
-        // Get path
-        while((p = strtok_r(NULL, "/", &save)) != NULL){
-            strcat(path, "/");
-            strcat(path, p);
-        }
-
-    }
-    /* Port not specified */
-    else{
-        // Get host name
-        p = strtok_r(buf, "/", &save);
-        strcpy(host, p);
-
-        // Get path
-        while((p = strtok_r(NULL, "/", &save)) != NULL){
-            strcat(path, "/");
-            strcat(path, p);
-        }
-
-        // Set port as unspecified
+ 	char *temp;
+	*port = "0";
+	strcpy(path, "/");
+	if((temp = strpbrk(strpbrk(uri, ":") + 1, ":"))){
+		sscanf(temp, "%d %s", port, path);
+		sscanf(uri, "http://%[^:]s", host);
+	} else {
+		sscanf(uri, "http://%[^/]s/", host);
+		sscanf(uri, "http://%*[^/]%s", path);
+	}
+	if(strcmp(port, "0")){
         strcpy(port, default_port);
-    }
+	}
 }
 
 /********************
