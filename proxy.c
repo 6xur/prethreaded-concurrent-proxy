@@ -205,19 +205,19 @@ void forward_req(int server, int client, char *host, char *path){
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     /* Parse request into method, uri, and version */
     char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-    char rbuf[MAXLINE];
+    char buf[MAXLINE];
 
     /* Initialize rio */
     Rio_readinitb(rio, client);
 
     /* Read the first line of the request */
-    if(!Rio_readlineb(rio, rbuf, MAXLINE)){
+    if(!Rio_readlineb(rio, buf, MAXLINE)){
         printf("ERROR: Bad request\n");
         return -1;
     }
 
     /* Splice the request */
-    sscanf(rbuf, "%s %s %s", method, uri, version);
+    sscanf(buf, "%s %s %s", method, uri, version);
     /***************************************/
     printf("---------Parsing request-----------\n");
     printf("Method: %s\n", method);
