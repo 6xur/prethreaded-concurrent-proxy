@@ -52,7 +52,7 @@ int main(int argc, char **argv){
 
     /* Check commandline arguments */
     if(argc != 2){
-        fprintf(stderr, "usage: %s <port>\n", argv[0]);
+        fprintf(stderr, "ERROR: usage: %s <port>\n", argv[0]);
         exit(0);
     }
 
@@ -89,7 +89,6 @@ void *thread(void *vargp){
     Pthread_detach(pthread_self());
     while(1){
         int client = sbuf_remove(&sbuf);  // remove a client fd from the shared buffer
-        printf("connfd: %d\n", client);
         doit(client);
         Close(client);
     }
@@ -105,7 +104,7 @@ void doit(int client){
 
     /* Parse client request into host, port, and path */
     if(parse_req(client, &rio, host, port, path) < 0){
-        fprintf(stderr, "ERROR: Cannot read this request path\n");
+        fprintf(stderr, "ERROR: cannot read this request path\n");
         flush_strs(host, port, path);
     }
     /* Parsing succeeded, continue */
@@ -121,18 +120,18 @@ void doit(int client){
          */
         if(lion != NULL){
             if(rio_writen(client, lion->obj, lion->size) < 0){
-                printf("ERROR: rio_writen error: bad connection\n");
+                fprintf(stderr, "ERROR: rio_writen error: bad connection\n");
             }
-            printf("Debug: Using cache\n");
+            printf("DEBUG: using cache\n");
             flush_strs(host, port, path);
         }
         
         /* Otherwise, it is a new request. We connect to server
          * and forward request */
         else{
-            printf("Debug: NO Cache\n");
+            printf("DEBUG: no cache\n");
             if((server = Open_clientfd(host, port)) < 0){  // open connection to server
-                fprintf(stderr, "ERROR: Could not establish connection to the server\n");
+                fprintf(stderr, "ERROR: could not establish connection to server\n");
                 flush_strs(host, port, path);
             } else{
                 forward_req(server, client, host, path);
@@ -216,7 +215,7 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
 
     /* Read the first line of the request */
     if(!Rio_readlineb(rio, buf, MAXLINE)){
-        printf("ERROR: Bad request\n");
+        fprintf(stderr, "ERROR: bad request\n");
         return -1;
     }
 
@@ -231,18 +230,20 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     /***************************************/
 
     if(strcasecmp(method, "GET")){
-        printf("ERROR: Proxy does not implement this method\n");
+        fprintf(stderr, "ERROR: proxy does not implement this method\n");
         return -1;
     }
     
     /* Parse the URI to get hostname, path and port*/
     parse_uri(uri, host, port, path);
 
+    /*****************************************/
     printf("_________Parsing URI_________\n");
     printf("Host: %s\n", host);
     printf("Port: %s\n", port);
     printf("Path: %s\n", path);
     printf("\n");
+    /*****************************************/
 
     return 0;
 }
@@ -283,7 +284,7 @@ void flush_str(char *str){
 }
 
 void flush_strs(char *str1, char *str2, char *str3){
-    if(str1) memset(str1, 0, sizeof(str1));
-    if(str2) memset(str2, 0, sizeof(str2));
-    if(str3) memset(str3, 0, sizeof(str3));
+    if(str1) flush_str(str1);
+    if(str2) flush_str(str2);
+    if(str3) flush_str(str3);
 }
