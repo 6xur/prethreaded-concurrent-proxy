@@ -246,31 +246,31 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     return 0;
 }
 
-void parse_uri(char *uri, char *hostname, char *port, char *path){
-    char *hostname_ptr;
+void parse_uri(char *uri, char *host, char *port, char *path){
+    char *host_ptr;
 	char *path_ptr;
 	char *port_ptr;
-	char host[MAXLINE];
+	char hostname[MAXLINE];
 
-	hostname_ptr = uri + strlen("http://");   // ignore "http://"
+	host_ptr = uri + strlen("http://");   // ignore "http://"
 	
 	//get path
-	if((path_ptr = strchr(hostname_ptr, '/')) != NULL){
+	if((path_ptr = strchr(host_ptr, '/')) != NULL){
 		strcpy(path, path_ptr);
-		strncpy(host, hostname_ptr, (path_ptr - hostname_ptr));
-		host[path_ptr - hostname_ptr] = '\0';	//end of the string
+		strncpy(hostname, host_ptr, (path_ptr - host_ptr));
+		hostname[path_ptr - host_ptr] = '\0';	//end of the string
 	}else{
 		strcpy(path, "/");
-		strcpy(host, hostname_ptr);
+		strcpy(hostname, host_ptr);
 	}
 
 	//get hostname and port
-	if((port_ptr = strchr(host, ':')) != NULL){
+	if((port_ptr = strchr(hostname, ':')) != NULL){
 		strcpy(port, port_ptr + 1);
-		strncpy(hostname, host, (port_ptr - host));
-		hostname[port_ptr - host] = '\0';
+		strncpy(host, hostname, (port_ptr - hostname));
+		host[port_ptr - hostname] = '\0';
 	}else{
-		strcpy(hostname, host);
+		strcpy(host, hostname);
 		strcpy(port, default_port);
 	}
 
