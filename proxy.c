@@ -14,8 +14,8 @@
 sbuf_t sbuf;  // shared buffer of connection file descriptors
 
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
-static const char *conn_hdr = "Connection: close\r\n";
-static const char *pconn_hdr = "Proxy-Connection: close\r\n";
+static const char *connection_hdr = "Connection: close\r\n";
+static const char *proxy_connection_hdr = "Proxy-Connection: close\r\n";
 static const char *end_hdr = "\r\n";
 static const char *default_port = "80";
 
@@ -24,7 +24,7 @@ void *thread(void *vargp);
 void doit(int client);
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
 void parse_uri(char *uri, char *host, char *port, char *path);
-void forward_req(int server, int client, rio_t *requio, char *host, char *path);
+void forward_req(int server, int client, char *host, char *path);
 
 /* Error handling functions */
 void flush_str(char *str);
@@ -99,7 +99,7 @@ void *thread(void *vargp){
  * forward the request to server, and finally forward server
  * response to client */
 void doit(int client){
-    int server;  // connection to the server
+    int server;
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
     rio_t rio;
 
@@ -111,11 +111,9 @@ void doit(int client){
     /* Parsing succeeded, continue */
     else{
         /* READING */
-        // pthread_rwlock_rdlock(&lock);
-        // line *lion = in_cache(C, host, path);
-        // pthread_rwlock_unlock(&lock);
-
-        line *lion = NULL;
+        pthread_rwlock_rdlock(&lock);
+        line *lion = in_cache(C, host, path);
+        pthread_rwlock_unlock(&lock);
 
         /* If in cache, don't connect to server */
         if(lion != NULL){
@@ -134,7 +132,7 @@ void doit(int client){
                 fprintf(stderr, "ERROR: Could not establish connection to the server\n");
                 flush_strs(host, port, path);
             } else{
-                forward_req(server, client, &rio, host, path);
+                forward_req(server, client, host, path);
                 /* Clean up & close connection to server */
                 flush_strs(host, port, path);
                 Close(server);
@@ -143,10 +141,9 @@ void doit(int client){
     }
 }
 
-void forward_req(int server, int client, rio_t *requio, char *host, char *path){
+void forward_req(int server, int client, char *host, char *path){
     /* Client-side reading */
     char buf[MAXLINE];
-    char cbuf[MAXLINE];
 
     /* Server-side reading */
     char svbuf[MAXLINE];
@@ -161,8 +158,8 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
-    sprintf(buf, "%s%s", buf, conn_hdr);
-    sprintf(buf, "%s%s", buf, pconn_hdr);
+    sprintf(buf, "%s%s", buf, connection_hdr);
+    sprintf(buf, "%s%s", buf, proxy_connection_hdr);
     sprintf(buf, "%s%s", buf, end_hdr);
 
     /* Forward request to server */
@@ -178,19 +175,22 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* -- FORWARD SERVER RESPONSE TO CLIENT -- */
     Rio_readinitb(&respio, server);
 
+    // TODO: using rio_readnb cause segmentation fault
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
-        // For cache
-        obj_size += m;
-        //sprintf(object, "%s%s", object, svbuf); //TODO: uncomment this line gives stack smashing
-        if(rio_writen(client, svbuf, m) < 0){
-            fprintf(stderr, "ERROR: Writing to client failed");
-            return;
+        /* For caching */
+        if((obj_size + m) <= MAX_OBJECT_SIZE){
+            obj_size += m;
+            sprintf(object, "%s%s", object, svbuf);
         }
+
+        /* Write to client */
+        Rio_writen(client, svbuf, m);
         flush_str(svbuf);
     }
 
     /* Object is not cached.
-     * If it's small enough and not a error, cache it */
+     * If it's small enough and not a error, cache it 
+     */
      if(obj_size <= MAX_OBJECT_SIZE){
         pthread_rwlock_wrlock(&lock);
         add_line(C, make_line(host, path, object, obj_size));
@@ -198,7 +198,7 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
      }
 
     /* Clean up */
-    flush_strs(buf, cbuf, svbuf);
+    flush_strs(buf, buf, svbuf);
     flush_strs(host, path, object);
 }
 
