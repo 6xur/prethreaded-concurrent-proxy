@@ -21,7 +21,7 @@ static const char *default_port = "80";
 
 /* Request handling functions */
 void *thread(void *vargp);
-void connect_req(int client);
+void doit(int client);
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
 void parse_uri(char *uri, char *host, char *port, char *path);
 void forward_req(int server, int client, rio_t *requio, char *host, char *path);
@@ -56,9 +56,12 @@ int main(int argc, char **argv){
         exit(0);
     }
 
-    /* Some setup */
+    /* Initialize read-write lock */
+    pthread_rwlock_init(&lock, NULL);
+
+    /* Initialize cache */
     C = Malloc(sizeof(struct web_cache));
-    cache_init(C, &lock);
+    cache_init(C);
 
     /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);
@@ -77,6 +80,9 @@ int main(int argc, char **argv){
     }
 
     cache_free(C);
+
+    /* Destory read-write lock */
+    pthread_rwlock_destroy(&lock);
 }
 
 void *thread(void *vargp){
@@ -84,7 +90,7 @@ void *thread(void *vargp){
     while(1){
         int client = sbuf_remove(&sbuf);  // remove a client fd from the shared buffer
         printf("connfd: %d\n", client);
-        connect_req(client);
+        doit(client);
         Close(client);
     }
 }
@@ -92,7 +98,7 @@ void *thread(void *vargp){
 /* Check for errors in the client request, parse the request,
  * forward the request to server, and finally forward server
  * response to client */
-void connect_req(int client){
+void doit(int client){
     int server;  // connection to the server
     char host[MAXLINE], port[MAXLINE], path[MAXLINE];
     rio_t rio;
@@ -107,8 +113,9 @@ void connect_req(int client){
         /* READING */
         // pthread_rwlock_rdlock(&lock);
         // line *lion = in_cache(C, host, path);
-        line *lion = NULL;
         // pthread_rwlock_unlock(&lock);
+
+        line *lion = NULL;
 
         /* If in cache, don't connect to server */
         if(lion != NULL){
@@ -140,7 +147,6 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     /* Client-side reading */
     char buf[MAXLINE];
     char cbuf[MAXLINE];
-    ssize_t n = 0;
 
     /* Server-side reading */
     char svbuf[MAXLINE];
@@ -203,6 +209,8 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
 
     /* Initialize rio */
     Rio_readinitb(rio, client);
+
+    /* Read the first line of the request */
     if(!Rio_readlineb(rio, rbuf, MAXLINE)){
         printf("ERROR: Bad request\n");
         return -1;
@@ -224,6 +232,7 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
         printf("ERROR: 'http://' not found\n");
         return -1;
     } else{  // parse URI
+        /* Parse the URI, get hostname, path (if specified) and port*/
         parse_uri(uri, host, port, path);
 
         if(path[0] == '\0'){

@@ -30,7 +30,7 @@ typedef struct cache_line {
  }cache;
 
 /* FUnction prototypes for cache operations */
-void cache_init(cache *cash, pthread_rwlock_t *lock);
+void cache_init(cache *cash);
 int cache_full(cache *cash);
 void cache_free(cache *cash);
 /* Function prototypes for cache_line operations */

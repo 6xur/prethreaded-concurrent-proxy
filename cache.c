@@ -9,10 +9,7 @@
  * CACHE FUNCTIONS
  *****************/
 
-void cache_init(cache *cash, pthread_rwlock_t *lock){ 
-  /* Initialize read-write lock */
-  pthread_rwlock_init(lock, NULL);
-
+void cache_init(cache *cash){ 
   /* Init cache to empty state */
   cash->size = 0;
   cash->start = NULL;
