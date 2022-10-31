@@ -123,13 +123,14 @@ void doit(int client){
             if(rio_writen(client, lion->obj, lion->size) < 0){
                 printf("ERROR: rio_writen error: bad connection\n");
             }
+            printf("Debug: Using cache\n");
             flush_strs(host, port, path);
         }
         
         /* Otherwise, it is a new request. We connect to server
          * and forward request */
         else{
-            printf("NOt using cache???????????\n");
+            printf("Debug: NO Cache\n");
             if((server = Open_clientfd(host, port)) < 0){  // open connection to server
                 fprintf(stderr, "ERROR: Could not establish connection to the server\n");
                 flush_strs(host, port, path);
@@ -247,33 +248,29 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
 }
 
 void parse_uri(char *uri, char *host, char *port, char *path){
-    char *host_ptr;
-	char *path_ptr;
-	char *port_ptr;
+    char *host_ptr, *path_ptr, *port_ptr;
 	char hostname[MAXLINE];
 
-	host_ptr = uri + strlen("http://");   // ignore "http://"
-	
-	//get path
-	if((path_ptr = strchr(host_ptr, '/')) != NULL){
-		strcpy(path, path_ptr);
-		strncpy(hostname, host_ptr, (path_ptr - host_ptr));
-		hostname[path_ptr - host_ptr] = '\0';	//end of the string
-	}else{
-		strcpy(path, "/");
-		strcpy(hostname, host_ptr);
-	}
+    /* Ignore "http://" */
+	host_ptr = uri + strlen("http://");
 
-	//get hostname and port
-	if((port_ptr = strchr(hostname, ':')) != NULL){
-		strcpy(port, port_ptr + 1);
-		strncpy(host, hostname, (port_ptr - hostname));
-		host[port_ptr - hostname] = '\0';
-	}else{
+    if((path_ptr = strchr(host_ptr, '/')) == NULL){  // path is empty
+        strcpy(path, "/");
+		strcpy(hostname, host_ptr);
+    } else{
+        strcpy(path, path_ptr);
+		strncpy(hostname, host_ptr, (path_ptr - host_ptr));
+		hostname[path_ptr - host_ptr] = '\0';
+    }
+
+	if((port_ptr = strchr(hostname, ':')) == NULL){  // port undefined
 		strcpy(host, hostname);
 		strcpy(port, default_port);
+	}else{
+        strcpy(port, port_ptr + 1);
+		strncpy(host, hostname, (port_ptr - hostname));
+		host[port_ptr - hostname] = '\0';
 	}
-
 }
 
 /********************
