@@ -237,10 +237,6 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     /* Parse the URI to get hostname, path and port*/
     parse_uri(uri, host, port, path);
 
-    if(path[0] == '\0'){
-            strcat(path, "/");
-    }
-
     printf("_________Parsing URI_________\n");
     printf("Host: %s\n", host);
     printf("Port: %s\n", port);
@@ -250,47 +246,34 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     return 0;
 }
 
-void parse_uri(char *uri, char *host, char *port, char *path){
-    /* Strings to keep track of URI parsing */
-    char *spec, *check;    // port specified?
-    char *buf, *p, *save;  // used for explicit URI parse
+void parse_uri(char *uri, char *hostname, char *port, char *path){
+    char *hostname_ptr;
+	char *path_ptr;
+	char *port_ptr;
+	char host[MAXLINE];
 
-    buf = uri + strlen("http://");  // ignore 'http://'
-    spec = index(buf, ':');    // pointer to the first occurence of ':'
+	hostname_ptr = uri + strlen("http://");   // ignore "http://"
+	
+	//get path
+	if((path_ptr = strchr(hostname_ptr, '/')) != NULL){
+		strcpy(path, path_ptr);
+		strncpy(host, hostname_ptr, (path_ptr - hostname_ptr));
+		host[path_ptr - hostname_ptr] = '\0';	//end of the string
+	}else{
+		strcpy(path, "/");
+		strcpy(host, hostname_ptr);
+	}
 
-    /* Port is specified */
-    if(spec){
-        // Get host name
-        p = strtok_r(buf, ":", &save);
-        strcpy(host, p);
+	//get hostname and port
+	if((port_ptr = strchr(host, ':')) != NULL){
+		strcpy(port, port_ptr + 1);
+		strncpy(hostname, host, (port_ptr - host));
+		hostname[port_ptr - host] = '\0';
+	}else{
+		strcpy(hostname, host);
+		strcpy(port, default_port);
+	}
 
-        // Get port from buf
-        buf = strtok_r(NULL, ":", &save);
-        p = strtok_r(buf, "/", &save);
-        strcpy(port, p);
-
-        // Get path
-        while((p = strtok_r(NULL, "/", &save)) != NULL){
-            strcat(path, "/");
-            strcat(path, p);
-        }
-
-    }
-    /* Port not specified */
-    else{
-        // Get host name
-        p = strtok_r(buf, "/", &save);
-        strcpy(host, p);
-
-        // Get path
-        while((p = strtok_r(NULL, "/", &save)) != NULL){
-            strcat(path, "/");
-            strcat(path, p);
-        }
-
-        // Set port to default port if not given
-        strcpy(port, default_port);
-    }
 }
 
 /********************
