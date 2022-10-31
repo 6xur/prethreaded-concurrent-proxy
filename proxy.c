@@ -13,6 +13,7 @@
 
 sbuf_t sbuf;  // shared buffer of connection file descriptors
 
+/* Global variables */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
 static const char *connection_hdr = "Connection: close\r\n";
 static const char *proxy_connection_hdr = "Proxy-Connection: close\r\n";
@@ -36,7 +37,7 @@ void sbuf_deinit(sbuf_t *sp);
 void sbuf_insert(sbuf_t *sp, int item);
 int sbuf_remove(sbuf_t *sp);
 
-/* GLobal web cache */
+/* Global web cache */
 cache *C;
 pthread_rwlock_t lock;
 
@@ -119,23 +120,24 @@ void doit(int client){
          * content directly from the cache
          */
         if(lion != NULL){
+            printf("my_obj: %s\n", lion->obj);
             if(rio_writen(client, lion->obj, lion->size) < 0){
                 fprintf(stderr, "ERROR: rio_writen error: bad connection\n");
             }
-            printf("DEBUG: using cache\n");
+            printf("Debug: using cache\n");
             flush_strs(host, port, path);
         }
         
         /* Otherwise, it is a new request. We connect to server
-         * and forward request */
+         * and forward request
+         */
         else{
-            printf("DEBUG: no cache\n");
+            printf("Debug: no cache\n");
             if((server = Open_clientfd(host, port)) < 0){  // open connection to server
                 fprintf(stderr, "ERROR: could not establish connection to server\n");
                 flush_strs(host, port, path);
             } else{
                 forward_req(server, client, host, path);
-                /* Clean up & close connection to server */
                 flush_strs(host, port, path);
                 Close(server);
             }
@@ -152,7 +154,7 @@ void forward_req(int server, int client, char *host, char *path){
     /* Server-side reading */
     char svbuf[MAXLINE];
     rio_t respio;
-    ssize_t m = 0;
+    ssize_t n = 0;
     
     /* Web object cache */
     char object[MAX_OBJECT_SIZE];
@@ -180,22 +182,22 @@ void forward_req(int server, int client, char *host, char *path){
     Rio_readinitb(&respio, server);
 
     // TODO: using rio_readnb cause segmentation fault
-    while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
+    while((n = rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
         /* For caching */
-        if((obj_size + m) <= MAX_OBJECT_SIZE){
-            obj_size += m;
+        if((obj_size + n) <= MAX_OBJECT_SIZE){
+            obj_size += n;
             sprintf(object, "%s%s", object, svbuf);
         }
 
         /* Write to client */
-        Rio_writen(client, svbuf, m);
+        Rio_writen(client, svbuf, n);
         flush_str(svbuf);
     }
 
-    /* Object is not cached.
-     * If it's small enough and not a error, cache it 
+    /* Object is not cached, if the total bytes read is less
+     * small enough, we store it into the cache
      */
-     if(obj_size <= MAX_OBJECT_SIZE){
+     if(obj_size <= MAX_OBJECT_SIZE && not_error(object)){
         pthread_rwlock_wrlock(&lock);
         add_line(C, make_line(host, path, object, obj_size));
         pthread_rwlock_unlock(&lock);
@@ -204,6 +206,20 @@ void forward_req(int server, int client, char *host, char *path){
     /* Clean up */
     flush_strs(buf, buf, svbuf);
     flush_strs(host, path, object);
+}
+
+/*
+ * not_error - determines if obj is a server error or not;
+ *             return 1 if it isn't, 0 if it is
+ */
+int not_error(char *obj){
+  size_t objsize = strlen(obj) + 1;
+  char object[objsize];
+
+  memset(object, 0, sizeof(object));
+
+  memcpy(object, obj, objsize);
+  return strstr(object, "200") != NULL ? 1 : 0;
 }
 
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
@@ -227,6 +243,7 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     printf("Method: %s\n", method);
     printf("URI: %s\n", uri);
     printf("Version: %s\n", version);
+    printf("\n");
     /***************************************/
 
     if(strcasecmp(method, "GET")){
