@@ -251,19 +251,46 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
 }
 
 void parse_uri(char *uri, char *host, char *port, char *path){
- 	char *temp;
-	*port = "0";
-	strcpy(path, "/");
-	if((temp = strpbrk(strpbrk(uri, ":") + 1, ":"))){
-		sscanf(temp, "%d %s", port, path);
-		sscanf(uri, "http://%[^:]s", host);
-	} else {
-		sscanf(uri, "http://%[^/]s/", host);
-		sscanf(uri, "http://%*[^/]%s", path);
-	}
-	if(strcmp(port, "0")){
+    /* Strings to keep track of URI parsing */
+    char *spec, *check;    // port specified?
+    char *buf, *p, *save;  // used for explicit URI parse
+
+    buf = uri + strlen("http://");  // ignore 'http://'
+    spec = index(buf, ':');    // pointer to the first occurence of ':'
+
+    /* Port is specified */
+    if(spec){
+        // Get host name
+        p = strtok_r(buf, ":", &save);
+        strcpy(host, p);
+
+        // Get port from buf
+        buf = strtok_r(NULL, ":", &save);
+        p = strtok_r(buf, "/", &save);
+        strcpy(port, p);
+
+        // Get path
+        while((p = strtok_r(NULL, "/", &save)) != NULL){
+            strcat(path, "/");
+            strcat(path, p);
+        }
+
+    }
+    /* Port not specified */
+    else{
+        // Get host name
+        p = strtok_r(buf, "/", &save);
+        strcpy(host, p);
+
+        // Get path
+        while((p = strtok_r(NULL, "/", &save)) != NULL){
+            strcat(path, "/");
+            strcat(path, p);
+        }
+
+        // Set port to default port if not given
         strcpy(port, default_port);
-	}
+    }
 }
 
 /********************
