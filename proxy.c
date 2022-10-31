@@ -115,17 +115,19 @@ void doit(int client){
         line *lion = in_cache(C, host, path);
         pthread_rwlock_unlock(&lock);
 
-        /* If in cache, don't connect to server */
+        /* If the URL has been seen before and is in the cache,
+         * do not connect to the server. Instead, we send the file
+         * content directly from the cache
+         */
         if(lion != NULL){
             if(rio_writen(client, lion->obj, lion->size) < 0){
                 printf("ERROR: rio_writen error: bad connection\n");
-            } else{
-                printf("Using cache !!!!!!!!!!!!!!!!!!!!!!!!!!!!");
             }
             flush_strs(host, port, path);
         }
         
-        /* Otherwise, connect to server & forward request */
+        /* Otherwise, it is a new request. We connect to server
+         * and forward request */
         else{
             printf("NOt using cache???????????\n");
             if((server = Open_clientfd(host, port)) < 0){  // open connection to server
@@ -141,6 +143,8 @@ void doit(int client){
     }
 }
 
+/* Forward request to the server and back to the client. Store content
+ * into the cache */
 void forward_req(int server, int client, char *host, char *path){
     /* Client-side reading */
     char buf[MAXLINE];
@@ -154,7 +158,7 @@ void forward_req(int server, int client, char *host, char *path){
     char object[MAX_OBJECT_SIZE];
     size_t obj_size = 0;
 
-    /* -- BUILD & FORWARD REQUEST TO SERVER -- */
+    /* ---- BUILD & FORWARD REQUEST TO SERVER ---- */
     sprintf(buf, "GET %s HTTP/1.0\r\n", path);
     sprintf(buf, "%sHost: %s\r\n", buf, host);
     sprintf(buf, "%s%s", buf, user_agent_hdr);
@@ -172,7 +176,7 @@ void forward_req(int server, int client, char *host, char *path){
     printf("-------- Request forwarded to the server --------\n");
     printf("%s\n", buf);
 
-    /* -- FORWARD SERVER RESPONSE TO CLIENT -- */
+    /* ---- FORWARD SERVER RESPONSE TO CLIENT ---- */
     Rio_readinitb(&respio, server);
 
     // TODO: using rio_readnb cause segmentation fault
@@ -204,9 +208,8 @@ void forward_req(int server, int client, char *host, char *path){
 
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     /* Parse request into method, uri, and version */
-    char method[MAXLINE], uri[MAXLINE], version[MAXLINE];
-    char buf[MAXLINE];
-
+    char buf[MAXLINE], method[MAXLINE], uri[MAXLINE], version[MAXLINE];
+    
     /* Initialize rio */
     Rio_readinitb(rio, client);
 
@@ -216,8 +219,9 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
         return -1;
     }
 
-    /* Splice the request */
+    /* Splice the client request */
     sscanf(buf, "%s %s %s", method, uri, version);
+
     /***************************************/
     printf("---------Parsing request-----------\n");
     printf("Method: %s\n", method);
@@ -225,28 +229,25 @@ int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
     printf("Version: %s\n", version);
     /***************************************/
 
-    if(strcasecmp(method, "GET")){       // Error: HTTP request isn't GET
-        printf("ERROR: HTTP request isn't GET\n");
+    if(strcasecmp(method, "GET")){
+        printf("ERROR: Proxy does not implement this method\n");
         return -1;
-    } else if(!strstr(uri, "http://")){  // Error: 'http://' not found
-        printf("ERROR: 'http://' not found\n");
-        return -1;
-    } else{  // parse URI
-        /* Parse the URI, get hostname, path (if specified) and port*/
-        parse_uri(uri, host, port, path);
-
-        if(path[0] == '\0'){
-                strcat(path, "/");
-        }
-
-        printf("-----Parsing URI-----\n");
-        printf("Host: %s\n", host);
-        printf("Port: %s\n", port);
-        printf("Path: %s\n", path);
-        printf("\n");
-
-        return 0;
     }
+    
+    /* Parse the URI to get hostname, path and port*/
+    parse_uri(uri, host, port, path);
+
+    if(path[0] == '\0'){
+            strcat(path, "/");
+    }
+
+    printf("_________Parsing URI_________\n");
+    printf("Host: %s\n", host);
+    printf("Port: %s\n", port);
+    printf("Path: %s\n", path);
+    printf("\n");
+
+    return 0;
 }
 
 void parse_uri(char *uri, char *host, char *port, char *path){
