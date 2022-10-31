@@ -56,7 +56,7 @@ int main(int argc, char **argv){
         exit(0);
     }
 
-    /* SOme setup */
+    /* Some setup */
     C = Malloc(sizeof(struct web_cache));
     cache_init(C, &lock);
 
@@ -75,6 +75,8 @@ int main(int argc, char **argv){
         client = Accept(listenfd, (SA *) &clientaddr, &clientlen);
         sbuf_insert(&sbuf, client);
     }
+
+    cache_free(C);
 }
 
 void *thread(void *vargp){
@@ -103,9 +105,10 @@ void connect_req(int client){
     /* Parsing succeeded, continue */
     else{
         /* READING */
-        pthread_rwlock_rdlock(&lock);
-        line *lion = in_cache(C, host, path);
-        pthread_rwlock_unlock(&lock);
+        // pthread_rwlock_rdlock(&lock);
+        // line *lion = in_cache(C, host, path);
+        line *lion = NULL;
+        // pthread_rwlock_unlock(&lock);
 
         /* If in cache, don't connect to server */
         if(lion != NULL){
@@ -116,6 +119,7 @@ void connect_req(int client){
             }
             flush_strs(host, port, path);
         }
+        
         /* Otherwise, connect to server & forward request */
         else{
             printf("NOt using cache???????????\n");
@@ -171,7 +175,7 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
         // For cache
         obj_size += m;
-        //sprintf(object, "%s%s", object, svbuf); TODO: uncomment this line gives stack smashing
+        //sprintf(object, "%s%s", object, svbuf); //TODO: uncomment this line gives stack smashing
         if(rio_writen(client, svbuf, m) < 0){
             fprintf(stderr, "ERROR: Writing to client failed");
             return;
@@ -189,7 +193,7 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
 
     /* Clean up */
     flush_strs(buf, cbuf, svbuf);
-    flush_strs(host, path, path);
+    flush_strs(host, path, object);
 }
 
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
