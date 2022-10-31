@@ -171,7 +171,7 @@ void forward_req(int server, int client, rio_t *requio, char *host, char *path){
     while((m = Rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
         // For cache
         obj_size += m;
-        // Write to client
+        //sprintf(object, "%s%s", object, svbuf); TODO: uncomment this line gives stack smashing
         if(rio_writen(client, svbuf, m) < 0){
             fprintf(stderr, "ERROR: Writing to client failed");
             return;
