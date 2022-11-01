@@ -23,6 +23,7 @@ static const char *default_port = "80";
 /* Request handling functions */
 void *thread(void *vargp);
 void doit(int client);
+int is_error(char *obj);
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path);
 void parse_uri(char *uri, char *host, char *port, char *path);
 void forward_req(int server, int client, char *host, char *path);
@@ -42,7 +43,7 @@ cache *C;
 pthread_rwlock_t lock;
 
 /* 
- * main routine: accept connections and place them 
+ * Main routine: accept connections and place them 
  * in the shared buffer for a worker thread to process
  */
 int main(int argc, char **argv){
@@ -149,11 +150,11 @@ void doit(int client){
  * into the cache */
 void forward_req(int server, int client, char *host, char *path){
     /* Client-side reading */
-    char buf[MAXLINE];
+    char clbuf[MAXLINE];
 
     /* Server-side reading */
     char svbuf[MAXLINE];
-    rio_t respio;
+    rio_t rio;
     ssize_t n = 0;
     
     /* Web object cache */
@@ -161,30 +162,30 @@ void forward_req(int server, int client, char *host, char *path){
     size_t obj_size = 0;
 
     /* ---- BUILD & FORWARD REQUEST TO SERVER ---- */
-    sprintf(buf, "GET %s HTTP/1.0\r\n", path);
-    sprintf(buf, "%sHost: %s\r\n", buf, host);
-    sprintf(buf, "%s%s", buf, user_agent_hdr);
-    sprintf(buf, "%s%s", buf, connection_hdr);
-    sprintf(buf, "%s%s", buf, proxy_connection_hdr);
-    sprintf(buf, "%s%s", buf, end_hdr);
+    sprintf(clbuf, "GET %s HTTP/1.0\r\n", path);
+    sprintf(clbuf, "%sHost: %s\r\n", clbuf, host);
+    strcat(clbuf, user_agent_hdr);
+    strcat(clbuf, connection_hdr);
+    strcat(clbuf, proxy_connection_hdr);
+    strcat(clbuf, end_hdr);
 
     /* Forward request to server */
-    if(rio_writen(server, buf, strlen(buf)) < 0){
+    if(rio_writen(server, clbuf, strlen(clbuf)) < 0){
         fprintf(stderr, "ERROR: writing to server failed");
         return;
     }
 
     printf("-------- Request forwarded to the server --------\n");
-    printf("%s\n", buf);
+    printf("%s\n", clbuf);
 
     /* ---- FORWARD SERVER RESPONSE TO CLIENT ---- */
-    Rio_readinitb(&respio, server);
+    Rio_readinitb(&rio, server);
 
     /* Read n bytes from the server. If the total number of bytes
      * read is less than or equal to MAX_OBJECT_SIZE, we save it
      * into the cache. 
      */
-    while((n = rio_readnb(&respio, svbuf, MAXLINE)) != 0){
+    while((n = rio_readnb(&rio, svbuf, MAXLINE)) != 0){
         /* For caching */
         if((obj_size + n) <= MAX_OBJECT_SIZE){
             memcpy(object + obj_size, svbuf, n);
@@ -289,9 +290,7 @@ void parse_uri(char *uri, char *host, char *port, char *path){
  * CLEAN-UP FUNCTIONS
  ********************/
 void flush_str(char *str){
-    if(str){
-        memset(str, 0, sizeof(str));
-    }
+    if(str) memset(str, 0, sizeof(*str));
 }
 
 void flush_strs(char *str1, char *str2, char *str3){
