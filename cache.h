@@ -9,12 +9,12 @@
 #define MAX_OBJECT_SIZE 102400  // 1000 kb
 
 /* Structure of a cache line consists of an identifier (loc),
- * an age (for LRU), the cahced web object, its size, and
+ * an frequency (for LFU), the cahced web object, its size, and
  * a pointer to the next cache line in the linked list
  */
 typedef struct cache_line {
     unsigned int size;
-    unsigned int age;
+    unsigned int frequency;
     char *loc;
     char *obj;
     struct line *next;
@@ -42,6 +42,5 @@ void remove_line(cache *cash, line *lion);
 line *choose_evict_lru(cache *cash);
 line *choose_evict_lfu(cache *cash);
 void free_line(cache *cash, line *lion);;
-void age_lines(cache *cash);
 
 #endif

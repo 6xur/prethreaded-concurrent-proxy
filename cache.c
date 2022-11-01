@@ -79,7 +79,7 @@ line *in_cache(cache* cash, char *host, char *path){
             nextlion->next = cash->start;
             cash->start = nextlion;
 
-            (nextlion->age)++;  // increment the frequency of this element
+            (nextlion->frequency)++;  // increment the frequency of this element
 
             object = nextlion;
             break;
@@ -109,9 +109,9 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
     /* Allocate space for this line */
     lion = Malloc(sizeof(struct cache_line));
 
-    /* Set size and age of line */
+    /* Set size and frequency of line */
     lion->size = (unsigned int)obj_size;
-    lion->age = 0;
+    lion->frequency = 0;
 
     /* Set the location of the line (identifier) */
     /* Combine host & path */
@@ -156,16 +156,6 @@ void add_line(cache *cash, line *lion) {
   /* END CRITICAL SECTION */
 }
 
-/* Age the cache (for LRU policy) */
-void age_lines(cache *cash){
-    line *lion = cash->start;
-    /* Increment age of all lines */
-    while(lion != NULL){
-        (lion->age)++;
-        lion = lion->next;
-    }
-}
-
 /* Remove a line from the cache */
 void remove_line(cache *cash, line *lion){
     line *tmp = cash->start;
@@ -201,7 +191,6 @@ line *choose_evict_lru(cache *cash){
   line *evict;
   evict = cash->start;
   while (evict->next != NULL) {
-    printf("my_age: %d\n", evict->age);
     evict = evict->next;
   }
   return evict;
@@ -209,15 +198,14 @@ line *choose_evict_lru(cache *cash){
 
 line *choose_evict_lfu(cache *cash){
   line *evict, *lion;
-  int youngest = 9999;  // placeholder
+  int youngest = 99999;  // placeholder
 
   lion = cash->start;
   evict = lion;
   /* Search the cache for the oldest line */
   while (lion != NULL) {
-    printf("my_age: %d\n", lion->age);
-    if (lion->age < youngest) {
-      youngest = lion->age;
+    if (lion->frequency < youngest) {
+      youngest = lion->frequency;
       evict = lion;
     }
     lion = lion->next;
@@ -229,7 +217,7 @@ line *choose_evict_lfu(cache *cash){
 void free_line(cache *cash, line *lion){
   /* Before freeing, update cache size */
   cash->size -= lion->size;
-  /* Free elements of line (except next--needed for freeing cache) */
+  /* Free elements of line (except next, needed for freeing cache) */
   Free(lion->loc);
   Free(lion->obj);
 }
