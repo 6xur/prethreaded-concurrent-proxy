@@ -69,13 +69,23 @@ line *in_cache(cache* cash, char *host, char *path){
 
     /* Determine if this object is cached */
     line *object = NULL;
-    line *lion = cash->start;
-    while(lion != NULL){
-        if(!strcmp(loc, lion->loc)){
-            object = lion;
-            break;  // object found!
+    line *lion = NULL;
+    line *nextlion = cash->start;
+
+    /* If it is found in the cache, we move it
+     * to the head of the linked list and return its value 
+     */
+    while(nextlion->next != NULL){
+        if(!strcmp(loc, nextlion->loc)){  // object found!
+            lion->next = nextlion->next;
+            nextlion->next = cash->start;
+            cash->start = nextlion;
+
+            object = nextlion;
+            break;
         }
-        lion = lion->next;
+        lion = nextlion;
+        nextlion = nextlion->next;
     }
     /* END CRITICAL SECTION*/
 
@@ -182,26 +192,17 @@ void remove_line(cache *cash, line *lion){
         else tmp = tmp->next;
     }
     /* Case: line not found.. can't remove */
-    printf("remove_line error: line not found");
+    printf("remove_line error: line not found\n");
 }
 
-/* Choose a line to evict using an LRU policy
- * Return a pointer to the chosen line
- */
+/* Choose the least recently used line, which is
+ * present at the tail of the cache */
 line *choose_evict_lru(cache *cash){
-  line *evict, *lion;
-  int eldest = -1;
-
-  lion = cash->start;
-  evict = lion;
-  /* Search the cache for the oldest line */
-  while (lion != NULL) {
-    printf("my_age: %d\n", lion->age);
-    if (lion->age > eldest) {
-      eldest = lion->age;
-      evict = lion;
-    }
-    lion = lion->next;
+  line *evict;
+  evict = cash->start;
+  while (evict->next != NULL) {
+    printf("my_age: %d\n", evict->age);
+    evict = evict->next;
   }
   return evict;
 }
