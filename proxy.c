@@ -202,13 +202,9 @@ void forward_req(int server, int client, char *host, char *path){
      */
      if(obj_size <= MAX_OBJECT_SIZE && !is_error(object)){
         pthread_rwlock_wrlock(&lock);
-        add_line(C, make_line(host, path, object, obj_size));  //TODO
+        add_line(C, make_line(host, path, object, obj_size));
         pthread_rwlock_unlock(&lock);
      }
-
-    /* Clean up */
-    flush_strs(buf, buf, svbuf);
-    flush_strs(host, path, object);
 }
 
 
@@ -293,7 +289,7 @@ void parse_uri(char *uri, char *host, char *port, char *path){
 
 /********************
  * CLEAN-UP FUNCTIONS
-*********************/
+ ********************/
 void flush_str(char *str){
     if(str){
         memset(str, 0, sizeof(str));
