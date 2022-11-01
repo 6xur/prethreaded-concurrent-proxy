@@ -30,9 +30,9 @@ typedef struct cache_line {
  }cache;
 
 /* FUnction prototypes for cache operations */
-void cache_init(cache *cash);
-int cache_full(cache *cash);
-void cache_free(cache *cash);
+void init_cache(cache *cash);
+int full_cache(cache *cash);
+void free_cache(cache *cash);
 /* Function prototypes for cache_line operations */
 line *in_cache(cache *cash, char *host, char *path);
 line *make_line(char *host, char *path, char *object, size_t obj_size);

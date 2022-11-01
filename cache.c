@@ -9,20 +9,20 @@
  * CACHE FUNCTIONS
  *****************/
 
-void cache_init(cache *cash){ 
+void init_cache(cache *cash){ 
   /* Init cache to empty state */
   cash->size = 0;
   cash->start = NULL;
 }
 
  /* Returns 1 if cache is full, 0 if not */
- int cache_full(cache *cash){
+ int full_cache(cache *cash){
   // The cache is full if there isn't enough room for another object
   return ((MAX_CACHE_SIZE - (cash->size)) < MAX_OBJECT_SIZE);
 }
 
 /* Free the cache from memory, including all of the lines in it */
-void cache_free(cache *cash){
+void free_cache(cache *cash){
     /* Need a ptr to keep track of next so current->next can be freed */
     line *lion = cash->start;
     line *nextlion = lion->next;
@@ -129,7 +129,7 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
 void add_line(cache *cash, line *lion) {
   /* CRITICAL SECTION: WRITE */
   /* If the cache is full, choose a line to evict & remove it */
-  if (cache_full(cash))
+  if (full_cache(cash))
     remove_line(cash, choose_evict(cash));
   /* Insert the line at the beginning of the list */
   lion->next = cash->start;

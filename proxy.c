@@ -73,7 +73,7 @@ int main(int argc, char **argv){
 
     /* Initialize cache */
     C = Malloc(sizeof(struct web_cache));
-    cache_init(C);
+    init_cache(C);
 
     /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);
@@ -91,7 +91,7 @@ int main(int argc, char **argv){
         sbuf_insert(&sbuf, client);
     }
 
-    cache_free(C);
+    free_cache(C);
 
     /* Destory read-write lock */
     pthread_rwlock_destroy(&lock);
