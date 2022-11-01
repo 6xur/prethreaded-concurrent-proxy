@@ -192,9 +192,6 @@ void forward_req(int server, int client, char *host, char *path){
         return;
     }
 
-    printf("-------- Request forwarded to the server --------\n");
-    printf("%s\n", clbuf);
-
     /* ---- FORWARD SERVER RESPONSE TO CLIENT ---- */
     Rio_readinitb(&rio, server);
 

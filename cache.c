@@ -61,8 +61,8 @@ void free_cache(cache *cash){
  * CACHE LINE FUNCTIONS
  **********************/
 
- /* In cache - Determines if a web object is already in the cache
-  * Returns pointer to line if it is, NULL if it isn't 
+ /* Determines if a web object is already in the cache
+  * return pointer to line if it is, NULL if it isn't 
   */
 line *in_cache(cache* cash, char *host, char *path){
     size_t hp = strlen(host) + strlen(path) + 2;
@@ -83,7 +83,7 @@ line *in_cache(cache* cash, char *host, char *path){
     line *nextlion = cash->start;
 
     /* If it is found in the cache, we move it
-     * to the head of the linked list and return its value 
+     * to the head of the cache and return its value 
      */
     while(nextlion->next != NULL){
         if(!strcmp(loc, nextlion->loc)){  // object found
@@ -91,8 +91,7 @@ line *in_cache(cache* cash, char *host, char *path){
             nextlion->next = cash->start;
             cash->start = nextlion;
 
-            (nextlion->frequency)++;  // object is used
-
+            (nextlion->frequency)++;     // object is used, increment frequency counter
             object = nextlion;
             break;
         }
@@ -104,10 +103,10 @@ line *in_cache(cache* cash, char *host, char *path){
     return object;
 }
 
-/* Create a line that can be inserted into the cache using a given hostname,
- * path to an object, size of the object, and the object as it would be returned
- * to the client.
- * Returns a pointer to this line
+/* Create a line that can be inserted into the cache using a given
+ * host, path to an object, size of the object, and the object as
+ * it would be returned to the client
+ * Return a pointer to this line
  */
 line *make_line(char *host, char *path, char *object, size_t obj_size){
     /* Variables to build the elements of the line */
@@ -136,7 +135,7 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
     /* Finish */
     memcpy(lion->loc, location, loc_size);
 
-    /* Set the object of the line (core purpose of line) */
+    /* Set the object of the line */
     lion->obj = Malloc(obj_size + 1);     // allocate space for obj
     memcpy(lion->obj, object, obj_size);  // finish
 
@@ -208,6 +207,7 @@ line *choose_evict_lru(cache *cash){
   return evict;
 }
 
+/* Return a poiner to the least frequently used line*/
 line *choose_evict_lfu(cache *cash){
   line *evict, *lion;
   int min = 99999;  // placeholder
