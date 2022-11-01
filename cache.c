@@ -196,6 +196,7 @@ line *choose_evict_lru(cache *cash){
   evict = lion;
   /* Search the cache for the oldest line */
   while (lion != NULL) {
+    printf("my_age: %d\n", lion->age);
     if (lion->age > eldest) {
       eldest = lion->age;
       evict = lion;
