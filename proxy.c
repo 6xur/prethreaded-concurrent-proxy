@@ -1,3 +1,10 @@
+/* Used the following resources in my assignment:
+ * https://github.com/yichaoxue871007/ICS-Labs/blob/master/proxylab-handout/proxy.c
+ * https://github.com/mrigankdoshy/sequential-caching-web-proxy/blob/master/proxy.c
+ * https://github.com/jcksber/CMU_15-213_caching-web-proxy
+ * https://github.com/mindbergh/ProxyLab
+ */
+
 #include <stdio.h>
 #include "sbuf.h"
 #include "sbuf.c"
@@ -11,7 +18,8 @@
 #define NTHREADS 32
 #define SBUFSIZE 32
 
-sbuf_t sbuf;  // shared buffer of connection file descriptors
+/* Shared buffer of connection file descriptors */
+sbuf_t sbuf;
 
 /* Global variables */
 static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/105.0.0.0 Safari/537.36\r\n";
@@ -95,14 +103,13 @@ int main(int argc, char **argv){
 
     free_cache(C);
 
-    /* Destory read-write lock */
     pthread_rwlock_destroy(&lock);
 }
 
 void *thread(void *vargp){
     Pthread_detach(pthread_self());
     while(1){
-        int client = sbuf_remove(&sbuf);  // remove a client fd from the shared buffer
+        int client = sbuf_remove(&sbuf);
         doit(client);
         Close(client);
     }
@@ -123,7 +130,6 @@ void doit(int client){
     }
     /* Parsing succeeded, continue */
     else{
-        /* READING */
         pthread_rwlock_rdlock(&lock);
         line *lion = in_cache(C, host, path);
         pthread_rwlock_unlock(&lock);
@@ -133,7 +139,6 @@ void doit(int client){
          * content directly from the cache
          */
         if(lion != NULL){
-            printf("my_obj: %s\n", lion->obj);
             if(rio_writen(client, lion->obj, lion->size) < 0){
                 fprintf(stderr, "ERROR: rio_writen error: bad connection\n");
             }

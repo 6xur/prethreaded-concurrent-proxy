@@ -1,3 +1,11 @@
+/* Parts of the following code use functions from https://github.com/jcksber/CMU_15-213_caching-web-proxy, specifically:
+ * full_cache
+ * free_cache
+ * make_line
+ * add_line
+ * remove_line
+ * free_line */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -5,20 +13,24 @@
 #include "csapp.h"
 #include "cache.h"
 
+
 /*****************
  * CACHE FUNCTIONS
  *****************/
 
-void init_cache(cache *cash, int pol){ 
-  /* Init cache to empty state */
+void init_cache(cache *cash, int pol){
+  /* Eviction policy 
+   * 0 - Least Recently Used   (LRU)
+   * 1 - Least Frequently Used (LFU)
+  */
+  cash->pol = pol;
   cash->size = 0;
   cash->start = NULL;
-  cash->pol = pol;
 }
 
- /* Returns 1 if cache is full, 0 if not */
+ /* Return 1 if cache is full, 0 if not */
  int full_cache(cache *cash){
-  // The cache is full if there isn't enough room for another object
+  /* The cache is full if there isn't enough room for another object */
   return ((MAX_CACHE_SIZE - (cash->size)) < MAX_OBJECT_SIZE);
 }
 
@@ -74,7 +86,7 @@ line *in_cache(cache* cash, char *host, char *path){
      * to the head of the linked list and return its value 
      */
     while(nextlion->next != NULL){
-        if(!strcmp(loc, nextlion->loc)){  // object found!
+        if(!strcmp(loc, nextlion->loc)){  // object found
             lion->next = nextlion->next;
             nextlion->next = cash->start;
             cash->start = nextlion;
@@ -182,7 +194,7 @@ void remove_line(cache *cash, line *lion){
         else tmp = tmp->next;
     }
     /* Case: line not found.. can't remove */
-    printf("remove_line error: line not found\n");
+    fprintf(stderr, "remove_line error: line not found\n");
 }
 
 /* Choose the least recently used line, which is
@@ -198,14 +210,14 @@ line *choose_evict_lru(cache *cash){
 
 line *choose_evict_lfu(cache *cash){
   line *evict, *lion;
-  int youngest = 99999;  // placeholder
+  int min = 99999;  // placeholder
 
   lion = cash->start;
   evict = lion;
   /* Search the cache for the oldest line */
   while (lion != NULL) {
-    if (lion->frequency < youngest) {
-      youngest = lion->frequency;
+    if (lion->frequency < min) {
+      min = lion->frequency;
       evict = lion;
     }
     lion = lion->next;
