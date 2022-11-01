@@ -181,12 +181,15 @@ void forward_req(int server, int client, char *host, char *path){
     /* ---- FORWARD SERVER RESPONSE TO CLIENT ---- */
     Rio_readinitb(&respio, server);
 
-    // TODO: using rio_readnb cause segmentation fault
+    /* Read n bytes from the server. If the total number of bytes
+     * read is less than or equal to MAX_OBJECT_SIZE, we save it
+     * into the cache. 
+     */
     while((n = rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
         /* For caching */
         if((obj_size + n) <= MAX_OBJECT_SIZE){
+            memcpy(object + obj_size, svbuf, n);
             obj_size += n;
-            sprintf(object, "%s%s", object, svbuf);
         }
 
         /* Write to client */
@@ -199,7 +202,7 @@ void forward_req(int server, int client, char *host, char *path){
      */
      if(obj_size <= MAX_OBJECT_SIZE && !is_error(object)){
         pthread_rwlock_wrlock(&lock);
-        add_line(C, make_line(host, path, object, obj_size));
+        add_line(C, make_line(host, path, object, obj_size));  //TODO
         pthread_rwlock_unlock(&lock);
      }
 
@@ -207,6 +210,7 @@ void forward_req(int server, int client, char *host, char *path){
     flush_strs(buf, buf, svbuf);
     flush_strs(host, path, object);
 }
+
 
 /* Determine if obj is a server error or not
  * 1 if it is, 0 if it isn't*/
