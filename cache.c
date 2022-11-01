@@ -9,10 +9,11 @@
  * CACHE FUNCTIONS
  *****************/
 
-void init_cache(cache *cash){ 
+void init_cache(cache *cash, int pol){ 
   /* Init cache to empty state */
   cash->size = 0;
   cash->start = NULL;
+  cash->pol = pol;
 }
 
  /* Returns 1 if cache is full, 0 if not */
@@ -129,8 +130,14 @@ line *make_line(char *host, char *path, char *object, size_t obj_size){
 void add_line(cache *cash, line *lion) {
   /* CRITICAL SECTION: WRITE */
   /* If the cache is full, choose a line to evict & remove it */
-  if (full_cache(cash))
-    remove_line(cash, choose_evict(cash));
+  if (full_cache(cash) && cash->pol == 0){
+    remove_line(cash, choose_evict_lru(cash));
+  }
+
+  if (full_cache(cash) && cash->pol == 1){
+    remove_line(cash, choose_evict_lfu(cash));
+  }
+
   /* Insert the line at the beginning of the list */
   lion->next = cash->start;
   cash->start = lion;
@@ -181,7 +188,7 @@ void remove_line(cache *cash, line *lion){
 /* Choose a line to evict using an LRU policy
  * Return a pointer to the chosen line
  */
-line *choose_evict(cache *cash){
+line *choose_evict_lru(cache *cash){
   line *evict, *lion;
   int eldest = -1;
 
@@ -196,6 +203,10 @@ line *choose_evict(cache *cash){
     lion = lion->next;
   }
   return evict;
+}
+
+line *choose_evict_lfu(cache *cash){
+  return NULL;
 }
 
  /* Free a specified line from cache */

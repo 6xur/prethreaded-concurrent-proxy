@@ -58,11 +58,17 @@ int main(int argc, char **argv){
         exit(0);
     }
 
-    /* Check eviction policy */
+    /* Initialize cache */
+    C = Malloc(sizeof(struct web_cache));
+
+    /* Check eviction policy 
+     * 0 - LRU
+     * 1 - LFU
+     */
     if(strcmp(argv[2], "LRU") == 0){
-        printf("Using LRU\n");
+        init_cache(C, 0);
     } else if(strcmp(argv[2], "LFU") == 0){
-        printf("Using LFU\n");
+        init_cache(C, 1);
     } else{
         fprintf(stderr, "ERROR: unsupported eviction policy\n");
         exit(0);
@@ -70,10 +76,6 @@ int main(int argc, char **argv){
 
     /* Initialize read-write lock */
     pthread_rwlock_init(&lock, NULL);
-
-    /* Initialize cache */
-    C = Malloc(sizeof(struct web_cache));
-    init_cache(C);
 
     /* Listen on port specified by the user */
     listenfd = Open_listenfd(argv[1]);

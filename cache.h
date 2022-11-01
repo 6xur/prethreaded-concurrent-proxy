@@ -26,11 +26,12 @@ typedef struct cache_line {
  */
  typedef struct web_cache {
     unsigned int size;
+    unsigned int pol;
     line *start;
  }cache;
 
 /* FUnction prototypes for cache operations */
-void init_cache(cache *cash);
+void init_cache(cache *cash, int pol);
 int full_cache(cache *cash);
 void free_cache(cache *cash);
 /* Function prototypes for cache_line operations */
@@ -38,7 +39,8 @@ line *in_cache(cache *cash, char *host, char *path);
 line *make_line(char *host, char *path, char *object, size_t obj_size);
 void add_line(cache *cash, line *lion);
 void remove_line(cache *cash, line *lion);
-line *choose_evict(cache *cash);
+line *choose_evict_lru(cache *cash);
+line *choose_evict_lfu(cache *cash);
 void free_line(cache *cash, line *lion);;
 void age_lines(cache *cash);
 
