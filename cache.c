@@ -61,8 +61,6 @@ line *in_cache(cache* cash, char *host, char *path){
     /* CRITICAL SECTION: READING */
     /* Nothing is in the cache if it's empty */
     if(cash->size == 0) return NULL;
-    /* Incr age of lines */
-    age_lines(cash);
     /* Create the location given host and path */
     strcat(loc, host);
     strcat(loc, path);
@@ -80,6 +78,8 @@ line *in_cache(cache* cash, char *host, char *path){
             lion->next = nextlion->next;
             nextlion->next = cash->start;
             cash->start = nextlion;
+
+            (nextlion->age)++;  // increment the frequency of this element
 
             object = nextlion;
             break;
@@ -208,7 +208,21 @@ line *choose_evict_lru(cache *cash){
 }
 
 line *choose_evict_lfu(cache *cash){
-  return NULL;
+  line *evict, *lion;
+  int youngest = 9999;  // placeholder
+
+  lion = cash->start;
+  evict = lion;
+  /* Search the cache for the oldest line */
+  while (lion != NULL) {
+    printf("my_age: %d\n", lion->age);
+    if (lion->age < youngest) {
+      youngest = lion->age;
+      evict = lion;
+    }
+    lion = lion->next;
+  }
+  return evict;
 }
 
  /* Free a specified line from cache */
