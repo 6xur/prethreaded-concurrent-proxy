@@ -170,7 +170,6 @@ void forward_req(int server, int client, char *host, char *path){
 
     /* Forward request to server */
     if(rio_writen(server, buf, strlen(buf)) < 0){
-        flush_str(buf);
         fprintf(stderr, "ERROR: writing to server failed");
         return;
     }
@@ -185,7 +184,7 @@ void forward_req(int server, int client, char *host, char *path){
      * read is less than or equal to MAX_OBJECT_SIZE, we save it
      * into the cache. 
      */
-    while((n = rio_readlineb(&respio, svbuf, MAXLINE)) != 0){
+    while((n = rio_readnb(&respio, svbuf, MAXLINE)) != 0){
         /* For caching */
         if((obj_size + n) <= MAX_OBJECT_SIZE){
             memcpy(object + obj_size, svbuf, n);
@@ -206,7 +205,6 @@ void forward_req(int server, int client, char *host, char *path){
         pthread_rwlock_unlock(&lock);
      }
 }
-
 
 /* Determine if obj is a server error or not
  * 1 if it is, 0 if it isn't*/
