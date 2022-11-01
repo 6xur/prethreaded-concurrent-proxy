@@ -53,8 +53,18 @@ int main(int argc, char **argv){
     struct sockaddr_storage clientaddr;
 
     /* Check commandline arguments */
-    if(argc != 2){
-        fprintf(stderr, "ERROR: usage: %s <port>\n", argv[0]);
+    if(argc != 3){
+        fprintf(stderr, "ERROR: usage: %s <port> <replacement_policy>\n", argv[0]);
+        exit(0);
+    }
+
+    /* Check eviction policy */
+    if(strcmp(argv[2], "LRU") == 0){
+        printf("Using LRU\n");
+    } else if(strcmp(argv[2], "LFU") == 0){
+        printf("Using LFU\n");
+    } else{
+        fprintf(stderr, "ERROR: unsupported eviction policy\n");
         exit(0);
     }
 
