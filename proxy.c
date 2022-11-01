@@ -133,7 +133,7 @@ void doit(int client){
          */
         else{
             printf("Debug: no cache\n");
-            if((server = Open_clientfd(host, port)) < 0){  // open connection to server
+            if((server = open_clientfd(host, port)) < 0){  // open connection to server
                 fprintf(stderr, "ERROR: could not establish connection to server\n");
                 flush_strs(host, port, path);
             } else{
@@ -197,7 +197,7 @@ void forward_req(int server, int client, char *host, char *path){
     /* Object is not cached, if the total bytes read is less
      * small enough, we store it into the cache
      */
-     if(obj_size <= MAX_OBJECT_SIZE && not_error(object)){
+     if(obj_size <= MAX_OBJECT_SIZE && !is_error(object)){
         pthread_rwlock_wrlock(&lock);
         add_line(C, make_line(host, path, object, obj_size));
         pthread_rwlock_unlock(&lock);
@@ -208,18 +208,14 @@ void forward_req(int server, int client, char *host, char *path){
     flush_strs(host, path, object);
 }
 
-/*
- * not_error - determines if obj is a server error or not;
- *             return 1 if it isn't, 0 if it is
- */
-int not_error(char *obj){
-  size_t objsize = strlen(obj) + 1;
-  char object[objsize];
-
-  memset(object, 0, sizeof(object));
-
-  memcpy(object, obj, objsize);
-  return strstr(object, "200") != NULL ? 1 : 0;
+/* Determine if obj is a server error or not
+ * 1 if it is, 0 if it isn't*/
+int is_error(char *obj){
+    size_t obj_size = strlen(obj) + 1;
+    char object[obj_size];
+    memset(object, 0, sizeof(object));
+    memcpy(object, obj, obj_size);
+    return strstr(object, "200") == NULL ? 1 : 0;
 }
 
 int parse_req(int client, rio_t *rio, char *host, char *port, char *path){
