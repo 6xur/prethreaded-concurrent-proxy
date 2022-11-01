@@ -91,7 +91,7 @@ line *in_cache(cache* cash, char *host, char *path){
             nextlion->next = cash->start;
             cash->start = nextlion;
 
-            (nextlion->frequency)++;  // increment the frequency of this element
+            (nextlion->frequency)++;  // object is used
 
             object = nextlion;
             break;
@@ -194,7 +194,7 @@ void remove_line(cache *cash, line *lion){
         else tmp = tmp->next;
     }
     /* Case: line not found.. can't remove */
-    fprintf(stderr, "remove_line error: line not found\n");
+    fprintf(stderr,"remove_line error: line not found\n");
 }
 
 /* Choose the least recently used line, which is
