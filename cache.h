@@ -9,8 +9,8 @@
 #define MAX_OBJECT_SIZE 102400  // 1000 kb
 
 /* Structure of a cache line consists of an identifier (loc),
- * an frequency (for LFU), the cahced web object, its size, and
- * a pointer to the next cache line in the linked list
+ * the usage frequency (for LFU), the cahced web object, its size
+ * and a pointer to the next cache line in the linked list
  */
 typedef struct cache_line {
     unsigned int size;
@@ -21,8 +21,7 @@ typedef struct cache_line {
 }line;
 
 /* Structure of a web cache consists of a pointer to the first
- * line of the cache, the last line of the cache, and the total
- * size of the cache.
+ * line of the cache, the total size and the eviction policy (pol)
  */
  typedef struct web_cache {
     unsigned int size;
@@ -30,7 +29,7 @@ typedef struct cache_line {
     line *start;
  }cache;
 
-/* FUnction prototypes for cache operations */
+/* Function prototypes for cache operations */
 void init_cache(cache *cash, int pol);
 int full_cache(cache *cash);
 void free_cache(cache *cash);
