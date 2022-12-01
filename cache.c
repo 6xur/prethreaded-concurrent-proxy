@@ -1,11 +1,3 @@
-/* Parts of the following code use functions from https://github.com/jcksber/CMU_15-213_caching-web-proxy, specifically:
- * full_cache
- * free_cache
- * make_line
- * add_line
- * remove_line
- * free_line */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
