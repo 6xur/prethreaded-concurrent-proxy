@@ -14,7 +14,7 @@ Proxy-Connection: close;
 
 Specifying close as the value of the Connection and Proxy-Connection headers alert web servers that the proxy intends to close connections after the first request/response exchange is completed.
 
-## How to Run:
+## How to Run
 
 The proxy can be started as follows.
 
@@ -29,3 +29,19 @@ For example, with the following command, the proxy should listen for connection 
 ```
 ./proxy 15214 LRU
 ```
+
+## Testing with Browser
+
+We can configure the browser to use our proxy for handling only plain HTTP requests.
+
+**Recommended: Firefox**
+
+1. Open up settings and search for Proxy.
+
+2. In these settings, select manual proxy configuration.
+
+3. In the HTTP proxy field, enter in localhost(127.0.0.1) and the port your proxy is using.
+
+4. Browse to about:config, search for **network.proxy.allow_hijacking_localhost** and set this to true.
+
+5. Set **browser.cache.disk.enable** and **browser.cache.memory.enable** to false in about:config.
